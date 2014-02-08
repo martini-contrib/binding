@@ -2,7 +2,7 @@
 
 Request data binding for Martini.
 
-[API Reference](http://godoc.org/github.com/codegangsta/martini-contrib/binding)
+[API Reference](http://godoc.org/github.com/martini-contrib/binding)
 
 
 
@@ -58,7 +58,7 @@ import (
    "net/http"
    
    "github.com/codegangsta/martini"
-   "github.com/codegangsta/martini-contrib/binding"
+   "github.com/martini-contrib/binding"
  )
 
 type BlogPost struct {
