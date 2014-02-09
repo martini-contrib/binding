@@ -1,4 +1,4 @@
-# binding
+# binding [![wercker status](https://app.wercker.com/status/f00480949f8a4e4130557f802c5b5b6b "wercker status")](https://app.wercker.com/project/bykey/f00480949f8a4e4130557f802c5b5b6b)
 
 Request data binding for Martini.
 
