@@ -5,6 +5,7 @@ package binding
 import (
 	"encoding/json"
 	"github.com/codegangsta/martini"
+	"io"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -123,7 +124,7 @@ func Json(jsonStruct interface{}, ifacePtr ...interface{}) martini.Handler {
 			defer req.Body.Close()
 		}
 
-		if err := json.NewDecoder(req.Body).Decode(jsonStruct.Interface()); err != nil {
+		if err := json.NewDecoder(req.Body).Decode(jsonStruct.Interface()); err != nil && err != io.EOF {
 			errors.Overall[DeserializationError] = err.Error()
 		}
 
