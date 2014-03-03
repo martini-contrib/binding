@@ -243,11 +243,11 @@ func setWithProperType(valueKind reflect.Kind, val string, structField reflect.V
 		if val == "" {
 			val = "0"
 		}
-		intVal, err := strconv.Atoi(val)
+		intVal, err := strconv.ParseInt(val, 10, 64)
 		if err != nil {
 			errors.Fields[nameInTag] = IntegerTypeError
 		} else {
-			structField.SetInt(int64(intVal))
+			structField.SetInt(intVal)
 		}
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		if val == "" {
