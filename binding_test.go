@@ -44,6 +44,10 @@ func TestFormWithInterface(t *testing.T) {
 	testForm(t, true)
 }
 
+func TestEmptyForm(t *testing.T) {
+	testEmptyForm(t)
+}
+
 func TestMultipartForm(t *testing.T) {
 	for index, test := range multipartformTests {
 		handler := func(post BlogPost, errors Errors) {
@@ -68,6 +72,10 @@ func TestJson(t *testing.T) {
 
 func TestJsonWithInterface(t *testing.T) {
 	testJson(t, true)
+}
+
+func TestEmptyJson(t *testing.T) {
+	testEmptyJson(t)
 }
 
 func TestValidate(t *testing.T) {
@@ -104,6 +112,17 @@ func handle(test testCase, t *testing.T, index int, post BlogPost, errors Errors
 			break
 		}
 	}
+
+	if test.ok && errors.Count() > 0 {
+		t.Errorf("%+v should be OK (0 errors), but had errors: %+v", test, errors)
+	} else if !test.ok && errors.Count() == 0 {
+		t.Errorf("%+v should have errors, but was OK (0 errors): %+v", test)
+	}
+}
+
+func handleEmpty(test emptyPayloadTestCase, t *testing.T, index int, section BlogSection, errors Errors) {
+	assertEqualField(t, "Title", index, test.ref.Title, section.Title)
+	assertEqualField(t, "Content", index, test.ref.Content, section.Content)
 
 	if test.ok && errors.Count() > 0 {
 		t.Errorf("%+v should be OK (0 errors), but had errors: %+v", test, errors)
@@ -183,6 +202,32 @@ func testJson(t *testing.T, withInterface bool) {
 	}
 }
 
+func testEmptyJson(t *testing.T) {
+	for index, test := range emptyPayloadTests {
+		recorder := httptest.NewRecorder()
+		handler := func(section BlogSection, errors Errors) { handleEmpty(test, t, index, section, errors) }
+		binding := Json(BlogSection{})
+
+		m := martini.Classic()
+		switch test.method {
+		case "GET":
+			m.Get(route, binding, handler)
+		case "POST":
+			m.Post(route, binding, handler)
+		case "PUT":
+			m.Put(route, binding, handler)
+		case "DELETE":
+			m.Delete(route, binding, handler)
+		}
+
+		req, err := http.NewRequest(test.method, route, strings.NewReader(test.payload))
+		if err != nil {
+			t.Error(err)
+		}
+		m.ServeHTTP(recorder, req)
+	}
+}
+
 func testForm(t *testing.T, withInterface bool) {
 	for index, test := range formTests {
 		recorder := httptest.NewRecorder()
@@ -195,6 +240,28 @@ func testForm(t *testing.T, withInterface bool) {
 			}
 			binding = Form(BlogPost{}, (*Modeler)(nil))
 		}
+
+		m := martini.Classic()
+		switch test.method {
+		case "GET":
+			m.Get(route, binding, handler)
+		case "POST":
+			m.Post(route, binding, handler)
+		}
+
+		req, err := http.NewRequest(test.method, test.path, nil)
+		if err != nil {
+			t.Error(err)
+		}
+		m.ServeHTTP(recorder, req)
+	}
+}
+
+func testEmptyForm(t *testing.T) {
+	for index, test := range emptyPayloadTests {
+		recorder := httptest.NewRecorder()
+		handler := func(section BlogSection, errors Errors) { handleEmpty(test, t, index, section, errors) }
+		binding := Form(BlogSection{})
 
 		m := martini.Classic()
 		switch test.method {
@@ -294,7 +361,7 @@ func (self BlogPost) Create(test testCase, t *testing.T, index int) {
 	}
 }
 
-func (self BlogSection) Create(test testCase, t *testing.T, index int) {
+func (self BlogSection) Create(test emptyPayloadTestCase, t *testing.T, index int) {
 	// intentionally left empty
 }
 
@@ -306,6 +373,15 @@ type (
 		contentType string
 		ok          bool
 		ref         *BlogPost
+	}
+
+	emptyPayloadTestCase struct {
+		method      string
+		path        string
+		payload     string
+		contentType string
+		ok          bool
+		ref         *BlogSection
 	}
 
 	Modeler interface {
@@ -321,7 +397,7 @@ type (
 	}
 
 	BlogSection struct {
-		Title   string `form:"title" json:"title" binding:"required"`
+		Title   string `form:"title" json:"title"`
 		Content string `form:"content" json:"content"`
 	}
 
@@ -497,6 +573,41 @@ var (
 			"multipart/form-data",
 			true,
 			&BlogPost{Title: "Blog Post Title", Content: "This is the content", Views: 3, Multiple: []int{5, 10, 15, 20}},
+		},
+	}
+
+	emptyPayloadTests = []emptyPayloadTestCase{
+		{
+			"GET",
+			"",
+			"",
+			"",
+			true,
+			&BlogSection{},
+		},
+		{
+			"POST",
+			"",
+			"",
+			"",
+			true,
+			&BlogSection{},
+		},
+		{
+			"PUT",
+			"",
+			"",
+			"",
+			true,
+			&BlogSection{},
+		},
+		{
+			"DELETE",
+			"",
+			"",
+			"",
+			true,
+			&BlogSection{},
 		},
 	}
 
