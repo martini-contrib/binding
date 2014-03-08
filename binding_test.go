@@ -66,6 +66,53 @@ func TestMultipartFormWithInterface(t *testing.T) {
 	}
 }
 
+func TestMultipartFileForm(t *testing.T) {
+
+	for idx, tc := range multipartformfileTests {
+		req := buildFormFileReq(t, &tc)
+		recorder := httptest.NewRecorder()
+		handler := func(fup FileUpload, errors Errors) {
+			handleFile(tc, t, &fup, errors, recorder, idx)
+		}
+		m := martini.Classic()
+		m.Post(fileroute, MultipartForm(FileUpload{}), handler)
+		m.ServeHTTP(recorder, req)
+	}
+}
+
+func TestMultipartMultipleFileForm(t *testing.T) {
+	for testIdx, tc := range multifileTests {
+		req := buildFormFileReq(t, &tc)
+		recorder := httptest.NewRecorder()
+		handler := func(fup MultipleFileUpload, errors Errors) {
+			// expecting everything to succeed
+			if errors.Count() > 0 {
+				t.Errorf("Expected no errors, got: %v", errors)
+			}
+
+			assertEqualField(t, "Title", testIdx, tc.title, fup.Title)
+			if len(tc.documents) != len(fup.Document) {
+				t.Errorf("Expected %d documents, got: %v", len(tc.documents), fup.Document)
+			}
+
+			for i, tcDocument := range tc.documents {
+				if (fup.Document[i] == nil) != tcDocument.isNil {
+					t.Errorf("Expected document.isNil: %v, got %v", tcDocument.isNil, fup.Document[i])
+				}
+
+				if fup.Document[i] != nil {
+					assertEqualField(t, "Filename", testIdx, tcDocument.fileName, fup.Document[i].Filename)
+					uploadData := unpackFileHeaderData(fup.Document[i], t)
+					assertEqualField(t, "Document Data", testIdx, tcDocument.data, uploadData)
+				}
+			}
+		}
+		m := martini.Classic()
+		m.Post(fileroute, MultipartForm(MultipleFileUpload{}), handler)
+		m.ServeHTTP(recorder, req)
+	}
+}
+
 func TestJson(t *testing.T) {
 	testJson(t, false)
 }
@@ -129,6 +176,46 @@ func handleEmpty(test emptyPayloadTestCase, t *testing.T, index int, section Blo
 	} else if !test.ok && errors.Count() == 0 {
 		t.Errorf("%+v should have errors, but was OK (0 errors): %+v", test)
 	}
+}
+
+func handleFile(tc fileTestCase, t *testing.T, fup *FileUpload, errors Errors, recorder *httptest.ResponseRecorder, index int) {
+
+	if (errors.Count() == 0) != tc.ok {
+		t.Errorf("Expected tc.ok: %v, got errors:%v ", tc.ok, errors)
+	}
+
+	assertEqualField(t, "Status Code", index, tc.statusCode, recorder.Code)
+	assertEqualField(t, "Title", index, tc.title, fup.Title)
+
+	tcDocument := tc.documents[0]
+	if (fup.Document == nil) != tcDocument.isNil {
+		t.Errorf("Expected document.isNil: %v, got %v", tcDocument.isNil, fup.Document)
+	}
+
+	if fup.Document != nil {
+		assertEqualField(t, "Filename", index, tcDocument.fileName, fup.Document.Filename)
+		uploadData := unpackFileHeaderData(fup.Document, t)
+		assertEqualField(t, "Document Data", index, tcDocument.data, uploadData)
+	}
+}
+
+func unpackFileHeaderData(fh *multipart.FileHeader, t *testing.T) (data string) {
+	if fh == nil {
+		return
+	}
+
+	f, err := fh.Open()
+	if err != nil {
+		t.Error(err)
+	}
+	defer f.Close()
+
+	var fb bytes.Buffer
+	_, err = fb.ReadFrom(f)
+	if err != nil {
+		t.Error(err)
+	}
+	return fb.String()
 }
 
 func testBind(t *testing.T, withInterface bool) {
@@ -313,6 +400,33 @@ func testMultipart(t *testing.T, test testCase, middleware martini.Handler, hand
 	return recorder
 }
 
+func buildFormFileReq(t *testing.T, tc *fileTestCase) *http.Request {
+	var b bytes.Buffer
+	w := multipart.NewWriter(&b)
+
+	w.WriteField("title", tc.title)
+	for _, doc := range tc.documents {
+		fw, err := w.CreateFormFile("document", doc.fileName)
+		if err != nil {
+			t.Error(err)
+		}
+		fw.Write([]byte(doc.data))
+	}
+
+	err := w.Close()
+	if err != nil {
+		t.Error(err)
+	}
+
+	req, err := http.NewRequest("POST", filepath, &b)
+	if err != nil {
+		t.Error(err)
+	}
+
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	return req
+}
+
 func assertEqualField(t *testing.T, fieldname string, testcasenumber int, expected interface{}, got interface{}) {
 	if expected != got {
 		t.Errorf("%s: expected=%s, got=%s in test case %d\n", fieldname, expected, got, testcasenumber)
@@ -384,6 +498,20 @@ type (
 		ref         *BlogSection
 	}
 
+	fileTestCase struct {
+		path       string
+		title      string
+		documents  []*fileInfo
+		statusCode int
+		ok         bool
+	}
+
+	fileInfo struct {
+		isNil    bool
+		data     string
+		fileName string
+	}
+
 	Modeler interface {
 		Create(test testCase, t *testing.T, index int)
 	}
@@ -409,6 +537,16 @@ type (
 	Address struct {
 		Street1 string `json:"street1" binding:"required"`
 		Street2 string `json:"street2"`
+	}
+
+	FileUpload struct {
+		Title    string                `form:"title" binding:"required"`
+		Document *multipart.FileHeader `form:"document" binding:"required"`
+	}
+
+	MultipleFileUpload struct {
+		Title    string                  `form:"title" binding:"required"`
+		Document []*multipart.FileHeader `form:"document"`
 	}
 )
 
@@ -610,6 +748,75 @@ var (
 			&BlogSection{},
 		},
 	}
+	multipartformfileTests = []fileTestCase{
+		{
+			path:  filepath,
+			title: "Upload Please",
+			documents: []*fileInfo{
+				&fileInfo{
+					false,
+					"This is my body data.",
+					"testdata.txt",
+				},
+			},
+			statusCode: http.StatusOK,
+			ok:         true,
+		},
+		{
+			filepath,
+			"My upload",
+			[]*fileInfo{
+				&fileInfo{
+					true, // don't do a file upload
+					"",
+					"",
+				},
+			},
+			http.StatusOK,
+			false, // make sure we get an error (document is required)
+		},
+		{
+			// form puts multiple documents; make sure we just get the first one when it gets to our binding
+			filepath,
+			"My upload multiple",
+			[]*fileInfo{
+				&fileInfo{
+					false,
+					"document1.txt",
+					"I am the first document",
+				},
+				&fileInfo{
+					false,
+					"document2.txt",
+					"I am the second document",
+				},
+			},
+			http.StatusOK,
+			true,
+		},
+	}
+
+	multifileTests = []fileTestCase{
+		{
+			// form puts multiple documents. Expect this to work.
+			path:  filepath,
+			title: "My upload multiple",
+			documents: []*fileInfo{
+				&fileInfo{
+					false,
+					"document1.txt",
+					"I am the first document",
+				},
+				&fileInfo{
+					false,
+					"document2.txt",
+					"I am the second document",
+				},
+			},
+			statusCode: http.StatusOK,
+			ok:         true,
+		},
+	}
 
 	jsonTests = []testCase{
 		// bad requests
@@ -691,6 +898,8 @@ var (
 )
 
 const (
-	route = "/blogposts/create"
-	path  = "http://localhost:3000" + route
+	route     = "/blogposts/create"
+	path      = "http://localhost:3000" + route
+	fileroute = "/data"
+	filepath  = "http://localhost:3000" + fileroute
 )
