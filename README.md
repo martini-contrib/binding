@@ -28,6 +28,37 @@ It reads the Content-Type of the request to know how to deserialize it, or if th
 
 `binding.Form` deserializes form data from the request, whether in the query string or as a form-urlencoded payload, and puts the data into a struct you pass in. It then invokes the `binding.Validate` middleware to perform validation. No error handling is performed, but you can get the errors in your handler by receiving a `binding.Errors` type.
 
+#### MultipartForm
+
+Like `binding.Form`, `binding.MultipartForm` deserializes data from a request into the struct you pass in. Additionally, `binding.MultipartForm` will deserialize a POST request that has a form of *enctype="multipart/form-data"*. If the bound struct contains a field of type [`*multipart.FileHeader`](http://golang.org/pkg/mime/multipart/#FileHeader) (or `[]*multipart.FileHeader`), you also can read any uploaded files that were part of the form.
+
+After deserializing, `binding.Validate` middleware performs validation. Again, like `binding.Form`, no error handling is performed, but you can get the errors in your handler by receiving a `binding.Errors` type.
+
+A basic example:
+
+```go
+type UploadForm struct {
+	Title      string                `form:"title"`
+	TextUpload *multipart.FileHeader `form:"txtUpload"`
+}
+
+func uploadHandler(uf UploadForm) string {
+	// you can access uf.TextUpload if it has been set in the form.
+	f, err := uf.TextUpload.Open()
+	// handle err, use f ...
+}
+
+func main() {
+	m := martini.Classic()
+	m.Get("/", func() string {
+		// formHtml contains a <form method="POST" enctype="multipart/form-data">
+		// and an <input type="form" name="txtUpload">
+		return formHtml  
+	})
+	m.Post("/", binding.MultipartForm(UploadForm{}), uploadHandler)
+	m.Run()
+}
+```
 
 #### Json
 
