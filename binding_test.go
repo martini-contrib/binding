@@ -29,7 +29,7 @@ func TestMultipartBind(t *testing.T) {
 		recorder := testMultipart(t, test, Bind(BlogPost{}), handler, index)
 
 		if recorder.Code != expectStatus {
-			t.Errorf("On test case %v, got status code %d but expected %d", test, recorder.Code, expectStatus)
+			t.Errorf("On test case %+v, got status code %d but expected %d", test, recorder.Code, expectStatus)
 		}
 
 		index++
@@ -87,17 +87,17 @@ func TestMultipartMultipleFileForm(t *testing.T) {
 		handler := func(fup MultipleFileUpload, errors Errors) {
 			// expecting everything to succeed
 			if errors.Count() > 0 {
-				t.Errorf("Expected no errors, got: %v", errors)
+				t.Errorf("Expected no errors, got: %+v", errors)
 			}
 
 			assertEqualField(t, "Title", testIdx, tc.title, fup.Title)
 			if len(tc.documents) != len(fup.Document) {
-				t.Errorf("Expected %d documents, got: %v", len(tc.documents), fup.Document)
+				t.Errorf("Expected %d documents, got: %+v", len(tc.documents), fup.Document)
 			}
 
 			for i, tcDocument := range tc.documents {
 				if (fup.Document[i] == nil) != tcDocument.isNil {
-					t.Errorf("Expected document.isNil: %v, got %v", tcDocument.isNil, fup.Document[i])
+					t.Errorf("Expected document.isNil: %+v, got %+v", tcDocument.isNil, fup.Document[i])
 				}
 
 				if fup.Document[i] != nil {
@@ -151,11 +151,11 @@ func handle(test testCase, t *testing.T, index int, post BlogPost, errors Errors
 
 	for i := range test.ref.Multiple {
 		if i >= len(post.Multiple) {
-			t.Errorf("Expected: %v (size %d) to have same size as: %v (size %d)", post.Multiple, len(post.Multiple), test.ref.Multiple, len(test.ref.Multiple))
+			t.Errorf("Expected: %+v (size %d) to have same size as: %+v (size %d)", post.Multiple, len(post.Multiple), test.ref.Multiple, len(test.ref.Multiple))
 			break
 		}
 		if test.ref.Multiple[i] != post.Multiple[i] {
-			t.Errorf("Expected: %v to deep equal: %v", post.Multiple, test.ref.Multiple)
+			t.Errorf("Expected: %+v to deep equal: %+v", post.Multiple, test.ref.Multiple)
 			break
 		}
 	}
@@ -163,7 +163,7 @@ func handle(test testCase, t *testing.T, index int, post BlogPost, errors Errors
 	if test.ok && errors.Count() > 0 {
 		t.Errorf("%+v should be OK (0 errors), but had errors: %+v", test, errors)
 	} else if !test.ok && errors.Count() == 0 {
-		t.Errorf("%+v should have errors, but was OK (0 errors): %+v", test)
+		t.Errorf("%+v should have errors, but was OK (0 errors)", test)
 	}
 }
 
@@ -181,7 +181,7 @@ func handleEmpty(test emptyPayloadTestCase, t *testing.T, index int, section Blo
 func handleFile(tc fileTestCase, t *testing.T, fup *FileUpload, errors Errors, recorder *httptest.ResponseRecorder, index int) {
 
 	if (errors.Count() == 0) != tc.ok {
-		t.Errorf("Expected tc.ok: %v, got errors:%v ", tc.ok, errors)
+		t.Errorf("Expected tc.ok: %+v, got errors:%+v ", tc.ok, errors)
 	}
 
 	assertEqualField(t, "Status Code", index, tc.statusCode, recorder.Code)
@@ -189,7 +189,7 @@ func handleFile(tc fileTestCase, t *testing.T, fup *FileUpload, errors Errors, r
 
 	tcDocument := tc.documents[0]
 	if (fup.Document == nil) != tcDocument.isNil {
-		t.Errorf("Expected document.isNil: %v, got %v", tcDocument.isNil, fup.Document)
+		t.Errorf("Expected document.isNil: %+v, got %+v", tcDocument.isNil, fup.Document)
 	}
 
 	if fup.Document != nil {
@@ -238,6 +238,12 @@ func testBind(t *testing.T, withInterface bool) {
 			m.Get(route, binding, handler)
 		case "POST":
 			m.Post(route, binding, handler)
+		case "PUT":
+			m.Put(route, binding, handler)
+		case "DELETE":
+			m.Delete(route, binding, handler)
+		case "PATCH":
+			m.Patch(route, binding, handler)
 		}
 
 		req, err := http.NewRequest(test.method, test.path, strings.NewReader(test.payload))
@@ -249,7 +255,7 @@ func testBind(t *testing.T, withInterface bool) {
 		m.ServeHTTP(recorder, req)
 
 		if recorder.Code != expectStatus {
-			t.Errorf("On test case %v, got status code %d but expected %d", test, recorder.Code, expectStatus)
+			t.Errorf("On test case %+v, got status code %d but expected %d", test, recorder.Code, expectStatus)
 		}
 
 		index++
@@ -552,6 +558,24 @@ type (
 
 var (
 	bindTests = map[testCase]int{
+		// These should bail because of no Content-Type
+		testCase{
+			"POST",
+			path,
+			`no Content-Type POST"`,
+			"",
+			false,
+			new(BlogPost),
+		}: http.StatusUnsupportedMediaType,
+		testCase{
+			"PUT",
+			path,
+			`no Content-Type PUT"`,
+			"",
+			false,
+			new(BlogPost),
+		}: http.StatusUnsupportedMediaType,
+
 		// These should bail at the deserialization/binding phase
 		testCase{
 			"POST",
@@ -569,14 +593,6 @@ var (
 			false,
 			new(BlogPost),
 		}: http.StatusBadRequest,
-		testCase{
-			"POST",
-			path,
-			`no content-type and not URL-encoded or JSON"`,
-			"",
-			false,
-			new(BlogPost),
-		}: http.StatusBadRequest,
 
 		// These should deserialize, then bail at the validation phase
 		testCase{
@@ -586,7 +602,7 @@ var (
 			"x-www-form-urlencoded",
 			false,
 			new(BlogPost),
-		}: 422, // according to comments in Form() -> although the request is not url encoded, ParseForm does not complain
+		}: StatusUnprocessableEntity, // according to comments in Form() -> although the request is not url encoded, ParseForm does not complain
 		testCase{
 			"GET",
 			path + "?content=This+is+the+content",
@@ -594,7 +610,7 @@ var (
 			"x-www-form-urlencoded",
 			false,
 			&BlogPost{Title: "", Content: "This is the content"},
-		}: 422,
+		}: StatusUnprocessableEntity,
 		testCase{
 			"GET",
 			path + "",
@@ -602,7 +618,7 @@ var (
 			"application/json",
 			false,
 			&BlogPost{Title: "Blog Post Title", Content: ""},
-		}: 422,
+		}: StatusUnprocessableEntity,
 
 		// These should succeed
 		testCase{
@@ -617,21 +633,13 @@ var (
 			"GET",
 			path + "?content=This+is+the+content&title=Blog+Post+Title",
 			``,
-			"",
+			"", // no content-type
 			true,
 			&BlogPost{Title: "Blog Post Title", Content: "This is the content"},
 		}: http.StatusOK,
 		testCase{
 			"GET",
 			path + "?content=This is the content&title=Blog+Post+Title",
-			`{"content":"This is the content", "title":"Blog Post Title"}`,
-			"",
-			true,
-			&BlogPost{Title: "Blog Post Title", Content: "This is the content"},
-		}: http.StatusOK,
-		testCase{
-			"GET",
-			path + "",
 			`{"content":"This is the content", "title":"Blog Post Title"}`,
 			"",
 			true,
@@ -648,7 +656,8 @@ var (
 			"multipart/form-data",
 			false,
 			&BlogPost{Title: "", Content: "This is the content"},
-		}: 422,
+		}: StatusUnprocessableEntity,
+
 		// This should succeed
 		testCase{
 			"POST",

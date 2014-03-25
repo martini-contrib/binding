@@ -10,6 +10,8 @@ Request data binding for Martini.
 
 Package `binding` provides several middleware for transforming raw request data into populated structs, validating the input, and handling the errors. Each handler is independent and optional.
 
+
+
 #### Bind
 
 `binding.Bind` is a convenient wrapper over the other handlers in this package. It does the following boilerplate for you:
@@ -20,13 +22,17 @@ Package `binding` provides several middleware for transforming raw request data 
 
 Your application (the final handler) will not even see the request if there are any errors.
 
-It reads the Content-Type of the request to know how to deserialize it, or if the Content-Type is not specified, it tries different deserializers until one returns without errors.
+If a Content-Type is specified, it will be used to know how to deserialize the request. A Content-Type is *required* for POST and PUT requests.
 
 **Important safety tip:** Don't attempt to bind a pointer to a struct. This will cause a panic [to prevent a race condition](https://github.com/codegangsta/martini-contrib/pull/34#issuecomment-29683659) where every request would be pointing to the same struct.
+
+
 
 #### Form
 
 `binding.Form` deserializes form data from the request, whether in the query string or as a form-urlencoded payload, and puts the data into a struct you pass in. It then invokes the `binding.Validate` middleware to perform validation. No error handling is performed, but you can get the errors in your handler by receiving a `binding.Errors` type.
+
+
 
 #### MultipartForm
 
@@ -60,9 +66,12 @@ func main() {
 }
 ```
 
+
 #### Json
 
 `binding.Json` deserializes JSON data in the payload of the request and uses `binding.Validate` to perform validation. Similar to `binding.Form`, no error handling is performed, but you can get the errors and handle them yourself.
+
+
 
 
 #### Validate
@@ -72,9 +81,11 @@ func main() {
 *Note:* Marking a field as "required" means that you do not allow the zero value for that type (i.e. if you want to allow 0 in an int field, do not make it required).
 
 
+
 #### ErrorHandler
 
 `binding.ErrorHandler` is a small middleware that simply writes a `400` code to the response and also a JSON payload describing the errors, *if* any errors have been mapped to the context. It does nothing if there are no errors.
+
 
 
 
@@ -144,7 +155,7 @@ func main() {
 }
 ```
 
-## Authors
+## Main Authors
 * [Matthew Holt](https://github.com/mholt)
 * [Michael Whatcott](https://github.com/mdwhatcott)
 * [Jeremy Saenz](https://github.com/codegangsta)

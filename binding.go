@@ -16,7 +16,6 @@ import (
 
 /*
 	To the land of Middle-ware Earth:
-
 		One func to rule them all,
 		One func to find them,
 		One func to bring them all,
@@ -26,27 +25,35 @@ import (
 // Bind accepts a copy of an empty struct and populates it with
 // values from the request (if deserialization is successful). It
 // wraps up the functionality of the Form and Json middleware
-// according to the Content-Type of the request, and it guesses
-// if no Content-Type is specified. Bind invokes the ErrorHandler
-// middleware to bail out if errors occurred. If you want to perform
-// your own error handling, use Form or Json middleware directly.
-// An interface pointer can be added as a second argument in order
-// to map the struct to a specific interface.
+// according to the Content-Type and verb of the request.
+// A Content-Type is required for POST and PUT requests.
+// Bind invokes the ErrorHandler middleware to bail out if errors
+// occurred. If you want to perform your own error handling, use
+// Form or Json middleware directly. An interface pointer can
+// be added as a second argument in order to map the struct to
+// a specific interface.
 func Bind(obj interface{}, ifacePtr ...interface{}) martini.Handler {
 	return func(context martini.Context, req *http.Request) {
 		contentType := req.Header.Get("Content-Type")
 
-		if strings.Contains(contentType, "form-urlencoded") {
-			context.Invoke(Form(obj, ifacePtr...))
-		} else if strings.Contains(contentType, "multipart/form-data") {
-			context.Invoke(MultipartForm(obj, ifacePtr...))
-		} else if strings.Contains(contentType, "json") {
-			context.Invoke(Json(obj, ifacePtr...))
-		} else {
-			context.Invoke(Json(obj, ifacePtr...))
-			if getErrors(context).Count() > 0 {
+		if req.Method == "POST" || req.Method == "PUT" || contentType != "" {
+			if strings.Contains(contentType, "form-urlencoded") {
 				context.Invoke(Form(obj, ifacePtr...))
+			} else if strings.Contains(contentType, "multipart/form-data") {
+				context.Invoke(MultipartForm(obj, ifacePtr...))
+			} else if strings.Contains(contentType, "json") {
+				context.Invoke(Json(obj, ifacePtr...))
+			} else {
+				errors := newErrors()
+				if contentType == "" {
+					errors.Overall[ContentTypeError] = "Empty Content-Type"
+				} else {
+					errors.Overall[ContentTypeError] = "Unsupported Content-Type"
+				}
+				context.Map(*errors)
 			}
+		} else {
+			context.Invoke(Form(obj, ifacePtr...))
 		}
 
 		context.Invoke(ErrorHandler)
@@ -241,8 +248,10 @@ func ErrorHandler(errs Errors, resp http.ResponseWriter) {
 		resp.Header().Set("Content-Type", "application/json; charset=utf-8")
 		if _, ok := errs.Overall[DeserializationError]; ok {
 			resp.WriteHeader(http.StatusBadRequest)
+		} else if _, ok := errs.Overall[ContentTypeError]; ok {
+			resp.WriteHeader(http.StatusUnsupportedMediaType)
 		} else {
-			resp.WriteHeader(422)
+			resp.WriteHeader(StatusUnprocessableEntity)
 		}
 		errOutput, _ := json.Marshal(errs)
 		resp.Write(errOutput)
@@ -384,8 +393,11 @@ var (
 
 const (
 	RequireError         string = "Required"
+	ContentTypeError     string = "ContentTypeError"
 	DeserializationError string = "DeserializationError"
 	IntegerTypeError     string = "IntegerTypeError"
 	BooleanTypeError     string = "BooleanTypeError"
 	FloatTypeError       string = "FloatTypeError"
+
+	StatusUnprocessableEntity int = 422
 )
