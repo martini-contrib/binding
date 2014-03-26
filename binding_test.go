@@ -137,8 +137,8 @@ func TestValidate(t *testing.T) {
 		}
 	}
 
-	performValidationTest(&BlogPost{"", "...", 0, 0, []int{}}, handlerMustErr, t)
-	performValidationTest(&BlogPost{"Good Title", "Good content", 0, 0, []int{}}, handlerNoErr, t)
+	performValidationTest(&BlogPost{"", "...", BlogPostMeta{0, 0, []int{}}}, handlerMustErr, t)
+	performValidationTest(&BlogPost{"Good Title", "Good content", BlogPostMeta{0, 0, []int{}}}, handlerNoErr, t)
 
 	performValidationTest(&User{Name: "Jim", Home: Address{"", ""}}, handlerMustErr, t)
 	performValidationTest(&User{Name: "Jim", Home: Address{"required", ""}}, handlerNoErr, t)
@@ -522,12 +522,16 @@ type (
 		Create(test testCase, t *testing.T, index int)
 	}
 
+	BlogPostMeta struct {
+		Views    int   `form:"views" json:"views"`
+		internal int   `form:"-"`
+		Multiple []int `form:"multiple"`
+	}
+
 	BlogPost struct {
-		Title    string `form:"title" json:"title" binding:"required"`
-		Content  string `form:"content" json:"content"`
-		Views    int    `form:"views" json:"views"`
-		internal int    `form:"-"`
-		Multiple []int  `form:"multiple"`
+		Title   string `form:"title" json:"title" binding:"required"`
+		Content string `form:"content" json:"content"`
+		BlogPostMeta
 	}
 
 	BlogSection struct {
@@ -684,7 +688,7 @@ var (
 			"",
 			"",
 			false, // false because POST requests should have a body, not just a query string
-			&BlogPost{Title: "Blog Post Title", Content: "This is the content", Views: 3},
+			&BlogPost{Title: "Blog Post Title", Content: "This is the content", BlogPostMeta: BlogPostMeta{Views: 3}},
 		},
 		{
 			"GET",
@@ -692,7 +696,7 @@ var (
 			"",
 			"",
 			true,
-			&BlogPost{Title: "Blog Post Title", Content: "This is the content", Views: 3, Multiple: []int{5, 10, 15, 20}},
+			&BlogPost{Title: "Blog Post Title", Content: "This is the content", BlogPostMeta: BlogPostMeta{Views: 3, Multiple: []int{5, 10, 15, 20}}},
 		},
 	}
 
@@ -711,7 +715,7 @@ var (
 			"",
 			"multipart/form-data",
 			false,
-			&BlogPost{Title: "Blog Post Title", Views: 3},
+			&BlogPost{Title: "Blog Post Title", BlogPostMeta: BlogPostMeta{Views: 3}},
 		},
 		{
 			"POST",
@@ -719,7 +723,7 @@ var (
 			"",
 			"multipart/form-data",
 			true,
-			&BlogPost{Title: "Blog Post Title", Content: "This is the content", Views: 3, Multiple: []int{5, 10, 15, 20}},
+			&BlogPost{Title: "Blog Post Title", Content: "This is the content", BlogPostMeta: BlogPostMeta{Views: 3, Multiple: []int{5, 10, 15, 20}}},
 		},
 	}
 

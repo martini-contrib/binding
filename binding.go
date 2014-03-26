@@ -189,12 +189,18 @@ func validateStruct(errors *Errors, obj interface{}) {
 }
 
 func mapForm(formStruct reflect.Value, form map[string][]string, formfile map[string][]*multipart.FileHeader, errors *Errors) {
-	typ := formStruct.Elem().Type()
+	if formStruct.Kind() == reflect.Ptr {
+		formStruct = formStruct.Elem()
+	}
+	typ := formStruct.Type()
 
 	for i := 0; i < typ.NumField(); i++ {
 		typeField := typ.Field(i)
-		if inputFieldName := typeField.Tag.Get("form"); inputFieldName != "" {
-			structField := formStruct.Elem().Field(i)
+		structField := formStruct.Field(i)
+
+		if typeField.Type.Kind() == reflect.Struct {
+			mapForm(structField, form, formfile, errors)
+		} else if inputFieldName := typeField.Tag.Get("form"); inputFieldName != "" {
 			if !structField.CanSet() {
 				continue
 			}
@@ -208,7 +214,7 @@ func mapForm(formStruct reflect.Value, form map[string][]string, formfile map[st
 					for i := 0; i < numElems; i++ {
 						setWithProperType(sliceOf, inputValue[i], slice.Index(i), inputFieldName, errors)
 					}
-					formStruct.Elem().Field(i).Set(slice)
+					formStruct.Field(i).Set(slice)
 				} else {
 					setWithProperType(typeField.Type.Kind(), inputValue[0], structField, inputFieldName, errors)
 				}
