@@ -182,7 +182,13 @@ func validateStruct(errors *Errors, obj interface{}) {
 			if field.Type.Kind() == reflect.Struct {
 				validateStruct(errors, fieldValue)
 			} else if reflect.DeepEqual(zero, fieldValue) {
-				errors.Fields[field.Name] = RequireError
+				name := field.Name
+				if j := field.Tag.Get("json"); j != "" {
+					name = j
+				} else if f := field.Tag.Get("form"); f != "" {
+					name = f
+				}
+				errors.Fields[name] = RequireError
 			}
 		}
 	}
