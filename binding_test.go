@@ -2,6 +2,7 @@ package binding
 
 import (
 	"bytes"
+	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -123,6 +124,43 @@ func TestJsonWithInterface(t *testing.T) {
 
 func TestEmptyJson(t *testing.T) {
 	testEmptyJson(t)
+}
+
+type missingJSON struct {
+	Foo string `json:"foo" form:"bar" binding:"required"`
+}
+
+type missingForm struct {
+	Foo string `form:"foo" binding:"required"`
+}
+
+func TestMissingRequiredTypeJSON(t *testing.T) {
+	m := martini.Classic()
+	m.Post("/", Bind(missingJSON{}), func() {})
+	m.Put("/", Bind(missingJSON{}), func() {})
+	for _, method := range []string{"POST", "PUT"} {
+		req, _ := http.NewRequest(method, "/", bytes.NewBufferString(""))
+		req.Header.Set("Content-Type", "application/json")
+		recorder := httptest.NewRecorder()
+		m.ServeHTTP(recorder, req)
+		data, _ := ioutil.ReadAll(recorder.Body)
+		if string(data) != `{"overall":{},"fields":{"foo":"Required"}}` {
+			t.Error("Incorrect repsonse for missing required JSON field")
+		}
+	}
+}
+
+func TestMissingRequiredTypeForm(t *testing.T) {
+	m := martini.Classic()
+	m.Post("/", Bind(missingForm{}), func() {})
+	req, _ := http.NewRequest("POST", "/", bytes.NewBufferString(""))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	recorder := httptest.NewRecorder()
+	m.ServeHTTP(recorder, req)
+	data, _ := ioutil.ReadAll(recorder.Body)
+	if string(data) != `{"overall":{},"fields":{"foo":"Required"}}` {
+		t.Error("Incorrect repsonse for missing required form field")
+	}
 }
 
 func TestValidate(t *testing.T) {
