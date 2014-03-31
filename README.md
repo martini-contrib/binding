@@ -99,7 +99,7 @@ package main
 import (
    "net/http"
    
-   "github.com/codegangsta/martini"
+   "github.com/go-martini/martini"
    "github.com/martini-contrib/binding"
  )
 
