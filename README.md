@@ -97,17 +97,17 @@ This is a contrived example to show a few different ways to use the `binding` pa
 package main
 
 import (
-   "net/http"
-   
-   "github.com/go-martini/martini"
-   "github.com/martini-contrib/binding"
- )
+	"net/http"
+
+	"github.com/go-martini/martini"
+	"github.com/martini-contrib/binding"
+)
 
 type BlogPost struct {
-	Title   string    `form:"title" json:"title" binding:"required"`
-	Content string    `form:"content" json:"content"`
-	Views   int       `form:"views" json:"views"`
-	unexported string `form:"-"`  // skip binding of unexported fields
+	Title      string `form:"title" json:"title" binding:"required"`
+	Content    string `form:"content" json:"content"`
+	Views      int    `form:"views" json:"views"`
+	unexported string `form:"-"` // skip binding of unexported fields
 }
 
 // This method implements binding.Validator and is executed by the binding.Validate middleware
