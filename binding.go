@@ -44,7 +44,7 @@ func Bind(obj interface{}, ifacePtr ...interface{}) martini.Handler {
 			} else if strings.Contains(contentType, "json") {
 				context.Invoke(Json(obj, ifacePtr...))
 			} else {
-				errors := newErrors()
+				errors := NewErrors()
 				if contentType == "" {
 					errors.Overall[ContentTypeError] = "Empty Content-Type"
 				} else {
@@ -73,7 +73,7 @@ func Form(formStruct interface{}, ifacePtr ...interface{}) martini.Handler {
 	return func(context martini.Context, req *http.Request) {
 		ensureNotPointer(formStruct)
 		formStruct := reflect.New(reflect.TypeOf(formStruct))
-		errors := newErrors()
+		errors := NewErrors()
 		parseErr := req.ParseForm()
 
 		// Format validation of the request body or the URL would add considerable overhead,
@@ -94,7 +94,7 @@ func MultipartForm(formStruct interface{}, ifacePtr ...interface{}) martini.Hand
 	return func(context martini.Context, req *http.Request) {
 		ensureNotPointer(formStruct)
 		formStruct := reflect.New(reflect.TypeOf(formStruct))
-		errors := newErrors()
+		errors := NewErrors()
 
 		// Workaround for multipart forms returning nil instead of an error
 		// when content is not multipart
@@ -127,7 +127,7 @@ func Json(jsonStruct interface{}, ifacePtr ...interface{}) martini.Handler {
 	return func(context martini.Context, req *http.Request) {
 		ensureNotPointer(jsonStruct)
 		jsonStruct := reflect.New(reflect.TypeOf(jsonStruct))
-		errors := newErrors()
+		errors := NewErrors()
 
 		if req.Body != nil {
 			defer req.Body.Close()
@@ -147,7 +147,7 @@ func Json(jsonStruct interface{}, ifacePtr ...interface{}) martini.Handler {
 // performs no error handling: it merely detects them and maps them.
 func Validate(obj interface{}) martini.Handler {
 	return func(context martini.Context, req *http.Request) {
-		errors := newErrors()
+		errors := NewErrors()
 		validateStruct(errors, obj)
 
 		if validator, ok := obj.(Validator); ok {
@@ -354,7 +354,7 @@ func validateAndMap(obj reflect.Value, context martini.Context, errors *Errors, 
 	}
 }
 
-func newErrors() *Errors {
+func NewErrors() *Errors {
 	return &Errors{make(map[string]string), make(map[string]string)}
 }
 
