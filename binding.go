@@ -247,9 +247,9 @@ func mapForm(formStruct reflect.Value, form map[string][]string, formfile map[st
 }
 
 // ErrorHandler simply counts the number of errors in the
-// context and, if more than 0, writes a 400 Bad Request
-// response and a JSON payload describing the errors with
-// the "Content-Type" set to "application/json".
+// context and, if more than 0, writes a response with an
+// error code and a JSON payload describing the errors.
+// The response will have a JSON content-type.
 // Middleware remaining on the stack will not even see the request
 // if, by this point, there are any errors.
 // This is a "default" handler, of sorts, and you are
@@ -257,7 +257,7 @@ func mapForm(formStruct reflect.Value, form map[string][]string, formfile map[st
 // invokes this automatically for convenience.
 func ErrorHandler(errs Errors, resp http.ResponseWriter) {
 	if errs.Count() > 0 {
-		resp.Header().Set("Content-Type", "application/json; charset=utf-8")
+		resp.Header().Set("Content-Type", jsonContentType)
 		if _, ok := errs.Overall[DeserializationError]; ok {
 			resp.WriteHeader(http.StatusBadRequest)
 		} else if _, ok := errs.Overall[ContentTypeError]; ok {
@@ -404,12 +404,14 @@ var (
 )
 
 const (
-	RequireError         string = "Required"
-	ContentTypeError     string = "ContentTypeError"
-	DeserializationError string = "DeserializationError"
-	IntegerTypeError     string = "IntegerTypeError"
-	BooleanTypeError     string = "BooleanTypeError"
-	FloatTypeError       string = "FloatTypeError"
+	RequireError         = "Required"
+	ContentTypeError     = "ContentTypeError"
+	DeserializationError = "DeserializationError"
+	IntegerTypeError     = "IntegerTypeError"
+	BooleanTypeError     = "BooleanTypeError"
+	FloatTypeError       = "FloatTypeError"
 
-	StatusUnprocessableEntity int = 422
+	jsonContentType = "application/json; charset=utf-8"
+
+	StatusUnprocessableEntity = 422
 )
