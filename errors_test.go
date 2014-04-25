@@ -1,6 +1,7 @@
 package binding
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -82,6 +83,40 @@ func TestNoErrors(t *testing.T) {
 			body:        ``,
 		},
 	})
+}
+
+func TestErrorCombine(t *testing.T) {
+	errs1, errs2 := NewErrors(), NewErrors()
+	errs1.Overall["foo1"] = "foo1"
+	errs1.Fields["bar1"] = "bar1"
+	errs2.Overall["foo2"] = "foo2"
+	errs2.Fields["bar2"] = "bar2"
+
+	errs1.combine(*errs2)
+
+	actual := fmt.Sprintf("%+v", errs1)
+	expected := `&{Overall:map[foo1:foo1 foo2:foo2] Fields:map[bar1:bar1 bar2:bar2]}`
+
+	if actual != expected {
+		t.Errorf("Expected errors to combine like so: '%s' - but got '%s' instead",
+			expected, actual)
+	}
+}
+
+func TestErrorCount(t *testing.T) {
+	errs := NewErrors()
+	if errs.Count() != 0 {
+		t.Errorf("Expected error count to be 0, but it was %d", errs.Count())
+	}
+	errs.Overall["foo"] = "foo"
+	if errs.Count() != 1 {
+		t.Errorf("Expected error count to be 1, but it was %d", errs.Count())
+	}
+	errs.Overall["bar"] = "bar"
+	errs.Fields["baz"] = "baz"
+	if errs.Count() != 3 {
+		t.Errorf("Expected error count to be 3, but it was %d", errs.Count())
+	}
 }
 
 func performErrorsTest(t *testing.T, testCase errorTestCase) {
