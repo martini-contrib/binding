@@ -21,7 +21,7 @@ var jsonTestCases = []jsonTestCase{
 		expected:      Post{Title: "Glorious Post Title", Content: "Lorem ipsum dolor sit amet"},
 	},
 	{
-		description:   "Nil payload should be handled gracefully",
+		description:   "Nil payload",
 		shouldSucceed: false,
 		method:        "POST",
 		payload:       `-nil-`,
@@ -49,8 +49,50 @@ var jsonTestCases = []jsonTestCase{
 		shouldSucceed: false,
 		method:        "POST",
 		payload:       `{"title":"foo"`,
-		contentType:   ``,
+		contentType:   jsonContentType,
 		expected:      Post{},
+	},
+	{
+		description:   "Deserialization with nested and embedded struct",
+		shouldSucceed: true,
+		method:        "POST",
+		payload:       `{"title":"Glorious Post Title", "id":1, "author":{"name":"Matt Holt"}}`,
+		contentType:   jsonContentType,
+		expected: BlogPost{
+			Post: Post{
+				Title: "Glorious Post Title",
+			},
+			Id: 1,
+			Author: Person{
+				Name: "Matt Holt",
+			},
+		},
+	},
+	{
+		description:   "Required nested struct field not specified",
+		shouldSucceed: false,
+		method:        "POST",
+		payload:       `{"title":"Glorious Post Title", "id":1, "author":{}}`,
+		contentType:   jsonContentType,
+		expected: BlogPost{
+			Post: Post{
+				Title: "Glorious Post Title",
+			},
+			Id: 1,
+		},
+	},
+	{
+		description:   "Required embedded struct field not specified",
+		shouldSucceed: false,
+		method:        "POST",
+		payload:       `{"id":1, "author":{"name":"Matt Holt"}}`,
+		contentType:   jsonContentType,
+		expected: BlogPost{
+			Id: 1,
+			Author: Person{
+				Name: "Matt Holt",
+			},
+		},
 	},
 }
 
@@ -65,7 +107,7 @@ func performJsonTest(t *testing.T, testCase jsonTestCase) {
 	httpRecorder := httptest.NewRecorder()
 	m := martini.Classic()
 
-	m.Post(testRoute, Json(Post{}), func(actual Post, errs Errors) {
+	jsonTestHandler := func(actual interface{}, errs Errors) {
 		if testCase.shouldSucceed && len(errs) > 0 {
 			t.Errorf("'%s' should have succeeded, but there were errors (%d):\n%+v",
 				testCase.description, len(errs), errs)
@@ -76,7 +118,18 @@ func performJsonTest(t *testing.T, testCase jsonTestCase) {
 			t.Errorf("'%s': expected\n'%s'\nbut got\n'%s'",
 				testCase.description, expString, actString)
 		}
-	})
+	}
+
+	switch testCase.expected.(type) {
+	case Post:
+		m.Post(testRoute, Json(Post{}), func(actual Post, errs Errors) {
+			jsonTestHandler(actual, errs)
+		})
+	case BlogPost:
+		m.Post(testRoute, Json(BlogPost{}), func(actual BlogPost, errs Errors) {
+			jsonTestHandler(actual, errs)
+		})
+	}
 
 	if testCase.payload == "-nil-" {
 		payload = nil
@@ -88,7 +141,6 @@ func performJsonTest(t *testing.T, testCase jsonTestCase) {
 	if err != nil {
 		panic(err)
 	}
-
 	req.Header.Set("Content-Type", testCase.contentType)
 
 	m.ServeHTTP(httpRecorder, req)
@@ -108,6 +160,6 @@ type (
 		method        string
 		payload       string
 		contentType   string
-		expected      Post
+		expected      interface{}
 	}
 )
