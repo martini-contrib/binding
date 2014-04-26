@@ -44,13 +44,19 @@ func Bind(obj interface{}, ifacePtr ...interface{}) martini.Handler {
 			} else if strings.Contains(contentType, "json") {
 				context.Invoke(Json(obj, ifacePtr...))
 			} else {
-				errors := NewErrors()
+				var errors Errors
 				if contentType == "" {
-					errors.Overall[ContentTypeError] = "Empty Content-Type"
+					errors = append(errors, Error{
+						Classification: ContentTypeError,
+						Message:        "Empty Content-Type",
+					})
 				} else {
-					errors.Overall[ContentTypeError] = "Unsupported Content-Type"
+					errors = append(errors, Error{
+						Classification: ContentTypeError,
+						Message:        "Unsupported Content-Type",
+					})
 				}
-				context.Map(*errors)
+				context.Map(errors)
 			}
 		} else {
 			context.Invoke(Form(obj, ifacePtr...))
@@ -71,9 +77,10 @@ func Bind(obj interface{}, ifacePtr ...interface{}) martini.Handler {
 // to map the struct to a specific interface.
 func Form(formStruct interface{}, ifacePtr ...interface{}) martini.Handler {
 	return func(context martini.Context, req *http.Request) {
+		var errors Errors
+
 		ensureNotPointer(formStruct)
 		formStruct := reflect.New(reflect.TypeOf(formStruct))
-		errors := NewErrors()
 		parseErr := req.ParseForm()
 
 		// Format validation of the request body or the URL would add considerable overhead,
@@ -81,39 +88,44 @@ func Form(formStruct interface{}, ifacePtr ...interface{}) martini.Handler {
 		// Because an empty request body or url can also mean absence of all needed values,
 		// it is not in all cases a bad request, so let's return 422.
 		if parseErr != nil {
-			errors.Overall[DeserializationError] = parseErr.Error()
+			errors = append(errors, Error{
+				Classification: DeserializationError,
+				Message:        parseErr.Error(),
+			})
 		}
-
 		mapForm(formStruct, req.Form, nil, errors)
-
 		validateAndMap(formStruct, context, errors, ifacePtr...)
 	}
 }
 
 func MultipartForm(formStruct interface{}, ifacePtr ...interface{}) martini.Handler {
 	return func(context martini.Context, req *http.Request) {
+		var errors Errors
+
 		ensureNotPointer(formStruct)
 		formStruct := reflect.New(reflect.TypeOf(formStruct))
-		errors := NewErrors()
 
 		// Workaround for multipart forms returning nil instead of an error
 		// when content is not multipart
 		// https://code.google.com/p/go/issues/detail?id=6334
 		multipartReader, err := req.MultipartReader()
 		if err != nil {
-			errors.Overall[DeserializationError] = err.Error()
+			errors = append(errors, Error{
+				Classification: DeserializationError,
+				Message:        err.Error(),
+			})
 		} else {
 			form, parseErr := multipartReader.ReadForm(MaxMemory)
-
 			if parseErr != nil {
-				errors.Overall[DeserializationError] = parseErr.Error()
+				errors = append(errors, Error{
+					Classification: DeserializationError,
+					Message:        parseErr.Error(),
+				})
 			}
-
 			req.MultipartForm = form
 		}
 
 		mapForm(formStruct, req.MultipartForm.Value, req.MultipartForm.File, errors)
-
 		validateAndMap(formStruct, context, errors, ifacePtr...)
 	}
 }
@@ -125,16 +137,21 @@ func MultipartForm(formStruct interface{}, ifacePtr ...interface{}) martini.Hand
 // to map the struct to a specific interface.
 func Json(jsonStruct interface{}, ifacePtr ...interface{}) martini.Handler {
 	return func(context martini.Context, req *http.Request) {
-		ensureNotPointer(jsonStruct)
-		jsonStruct := reflect.New(reflect.TypeOf(jsonStruct))
-		errors := NewErrors()
-
+		var errors Errors
 		if req.Body != nil {
 			defer req.Body.Close()
 		}
 
-		if err := json.NewDecoder(req.Body).Decode(jsonStruct.Interface()); err != nil && err != io.EOF {
-			errors.Overall[DeserializationError] = err.Error()
+		ensureNotPointer(jsonStruct)
+		jsonStruct := reflect.New(reflect.TypeOf(jsonStruct))
+
+		err := json.NewDecoder(req.Body).Decode(jsonStruct.Interface())
+
+		if err != nil && err != io.EOF {
+			errors = append(errors, Error{
+				Classification: DeserializationError,
+				Message:        err.Error(),
+			})
 		}
 
 		validateAndMap(jsonStruct, context, errors, ifacePtr...)
@@ -147,18 +164,16 @@ func Json(jsonStruct interface{}, ifacePtr ...interface{}) martini.Handler {
 // performs no error handling: it merely detects them and maps them.
 func Validate(obj interface{}) martini.Handler {
 	return func(context martini.Context, req *http.Request) {
-		errors := NewErrors()
+		var errors Errors
 		validateStruct(errors, obj)
-
 		if validator, ok := obj.(Validator); ok {
 			validator.Validate(errors, req)
 		}
-		context.Map(*errors)
-
+		context.Map(errors)
 	}
 }
 
-func validateStruct(errors *Errors, obj interface{}) {
+func validateStruct(errors Errors, obj interface{}) {
 	typ := reflect.TypeOf(obj)
 	val := reflect.ValueOf(obj)
 
@@ -170,7 +185,7 @@ func validateStruct(errors *Errors, obj interface{}) {
 	for i := 0; i < typ.NumField(); i++ {
 		field := typ.Field(i)
 
-		// Allow ignored fields in the struct
+		// Skip ignored fields in the struct
 		if field.Tag.Get("form") == "-" {
 			continue
 		}
@@ -178,23 +193,31 @@ func validateStruct(errors *Errors, obj interface{}) {
 		fieldValue := val.Field(i).Interface()
 		zero := reflect.Zero(field.Type).Interface()
 
+		if field.Type.Kind() == reflect.Struct {
+			validateStruct(errors, fieldValue)
+		}
+
 		if strings.Index(field.Tag.Get("binding"), "required") > -1 {
-			if field.Type.Kind() == reflect.Struct {
-				validateStruct(errors, fieldValue)
-			} else if reflect.DeepEqual(zero, fieldValue) {
+			if reflect.DeepEqual(zero, fieldValue) {
 				name := field.Name
 				if j := field.Tag.Get("json"); j != "" {
 					name = j
 				} else if f := field.Tag.Get("form"); f != "" {
 					name = f
 				}
-				errors.Fields[name] = RequireError
+				errors = append(errors, Error{
+					FieldNames:     []string{name},
+					Classification: RequiredError,
+					Message:        "Required",
+				})
 			}
 		}
 	}
 }
 
-func mapForm(formStruct reflect.Value, form map[string][]string, formfile map[string][]*multipart.FileHeader, errors *Errors) {
+func mapForm(formStruct reflect.Value, form map[string][]string,
+	formfile map[string][]*multipart.FileHeader, errors Errors) {
+
 	if formStruct.Kind() == reflect.Ptr {
 		formStruct = formStruct.Elem()
 	}
@@ -256,11 +279,11 @@ func mapForm(formStruct reflect.Value, form map[string][]string, formfile map[st
 // welcome to use your own instead. The Bind middleware
 // invokes this automatically for convenience.
 func ErrorHandler(errs Errors, resp http.ResponseWriter) {
-	if errs.Count() > 0 {
+	if len(errs) > 0 {
 		resp.Header().Set("Content-Type", jsonContentType)
-		if _, ok := errs.Overall[DeserializationError]; ok {
+		if errs.Has(DeserializationError) {
 			resp.WriteHeader(http.StatusBadRequest)
-		} else if _, ok := errs.Overall[ContentTypeError]; ok {
+		} else if errs.Has(ContentTypeError) {
 			resp.WriteHeader(http.StatusUnsupportedMediaType)
 		} else {
 			resp.WriteHeader(StatusUnprocessableEntity)
@@ -275,7 +298,7 @@ func ErrorHandler(errs Errors, resp http.ResponseWriter) {
 // matching value from the request (via Form middleware) in the
 // same type, so that not all deserialized values have to be strings.
 // Supported types are string, int, float, and bool.
-func setWithProperType(valueKind reflect.Kind, val string, structField reflect.Value, nameInTag string, errors *Errors) {
+func setWithProperType(valueKind reflect.Kind, val string, structField reflect.Value, nameInTag string, errors Errors) {
 	switch valueKind {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		if val == "" {
@@ -283,7 +306,11 @@ func setWithProperType(valueKind reflect.Kind, val string, structField reflect.V
 		}
 		intVal, err := strconv.ParseInt(val, 10, 64)
 		if err != nil {
-			errors.Fields[nameInTag] = IntegerTypeError
+			errors = append(errors, Error{
+				FieldNames:     []string{nameInTag},
+				Classification: TypeError,
+				Message:        "Value could not be parsed as integer",
+			})
 		} else {
 			structField.SetInt(intVal)
 		}
@@ -293,7 +320,11 @@ func setWithProperType(valueKind reflect.Kind, val string, structField reflect.V
 		}
 		uintVal, err := strconv.ParseUint(val, 10, 64)
 		if err != nil {
-			errors.Fields[nameInTag] = IntegerTypeError
+			errors = append(errors, Error{
+				FieldNames:     []string{nameInTag},
+				Classification: TypeError,
+				Message:        "Value could not be parsed as unsigned integer",
+			})
 		} else {
 			structField.SetUint(uintVal)
 		}
@@ -303,7 +334,11 @@ func setWithProperType(valueKind reflect.Kind, val string, structField reflect.V
 		}
 		boolVal, err := strconv.ParseBool(val)
 		if err != nil {
-			errors.Fields[nameInTag] = BooleanTypeError
+			errors = append(errors, Error{
+				FieldNames:     []string{nameInTag},
+				Classification: TypeError,
+				Message:        "Value could not be parsed as boolean",
+			})
 		} else {
 			structField.SetBool(boolVal)
 		}
@@ -313,7 +348,11 @@ func setWithProperType(valueKind reflect.Kind, val string, structField reflect.V
 		}
 		floatVal, err := strconv.ParseFloat(val, 32)
 		if err != nil {
-			errors.Fields[nameInTag] = FloatTypeError
+			errors = append(errors, Error{
+				FieldNames:     []string{nameInTag},
+				Classification: TypeError,
+				Message:        "Value could not be parsed as 32-bit float",
+			})
 		} else {
 			structField.SetFloat(floatVal)
 		}
@@ -323,7 +362,11 @@ func setWithProperType(valueKind reflect.Kind, val string, structField reflect.V
 		}
 		floatVal, err := strconv.ParseFloat(val, 64)
 		if err != nil {
-			errors.Fields[nameInTag] = FloatTypeError
+			errors = append(errors, Error{
+				FieldNames:     []string{nameInTag},
+				Classification: TypeError,
+				Message:        "Value could not be parsed as 64-bit float",
+			})
 		} else {
 			structField.SetFloat(floatVal)
 		}
@@ -344,56 +387,44 @@ func ensureNotPointer(obj interface{}) {
 // Performs validation and combines errors from validation
 // with errors from deserialization, then maps both the
 // resulting struct and the errors to the context.
-func validateAndMap(obj reflect.Value, context martini.Context, errors *Errors, ifacePtr ...interface{}) {
+func validateAndMap(obj reflect.Value, context martini.Context, errors Errors, ifacePtr ...interface{}) {
 	context.Invoke(Validate(obj.Interface()))
-	errors.combine(getErrors(context))
-	context.Map(*errors)
+	errors = append(errors, getErrors(context)...)
+	context.Map(errors)
 	context.Map(obj.Elem().Interface())
 	if len(ifacePtr) > 0 {
 		context.MapTo(obj.Elem().Interface(), ifacePtr[0])
 	}
 }
 
-func NewErrors() *Errors {
-	return &Errors{make(map[string]string), make(map[string]string)}
-}
-
 func getErrors(context martini.Context) Errors {
 	return context.Get(reflect.TypeOf(Errors{})).Interface().(Errors)
 }
 
-func (this *Errors) combine(other Errors) {
-	for key, val := range other.Fields {
-		if _, exists := this.Fields[key]; !exists {
-			this.Fields[key] = val
+func (e Errors) Has(class string) bool {
+	for _, err := range e {
+		if err.Classification == class {
+			return true
 		}
 	}
-	for key, val := range other.Overall {
-		if _, exists := this.Overall[key]; !exists {
-			this.Overall[key] = val
-		}
-	}
-}
-
-// Total errors is the sum of errors with the request overall
-// and errors on individual fields.
-func (self Errors) Count() int {
-	return len(self.Overall) + len(self.Fields)
+	return false
 }
 
 type (
-	// Errors represents the contract of the response body when the
-	// binding step fails before getting to the application.
-	Errors struct {
-		Overall map[string]string `json:"overall"`
-		Fields  map[string]string `json:"fields"`
+	Errors []Error
+
+	// An Error is generated when validation fails
+	Error struct {
+		FieldNames     []string `json:"fieldNames,omitempty"`
+		Classification string   `json:"classification,omitempty"`
+		Message        string   `json:"message,omitempty"`
 	}
 
 	// Implement the Validator interface to define your own input
 	// validation before the request even gets to your application.
 	// The Validate method will be executed during the validation phase.
 	Validator interface {
-		Validate(*Errors, *http.Request)
+		Validate(Errors, *http.Request)
 	}
 )
 
@@ -404,12 +435,10 @@ var (
 )
 
 const (
-	RequireError         = "Required"
+	RequiredError        = "RequiredError"
 	ContentTypeError     = "ContentTypeError"
 	DeserializationError = "DeserializationError"
-	IntegerTypeError     = "IntegerTypeError"
-	BooleanTypeError     = "BooleanTypeError"
-	FloatTypeError       = "FloatTypeError"
+	TypeError            = "TypeError"
 
 	jsonContentType = "application/json; charset=utf-8"
 
