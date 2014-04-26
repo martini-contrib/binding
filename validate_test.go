@@ -172,7 +172,7 @@ func performValidationTest(t *testing.T, testCase validationTestCase) {
 
 	switch httpRecorder.Code {
 	case http.StatusNotFound:
-		panic("Routing is messed up in test fixture (got 404): check method and path")
+		panic("Routing is messed up in test fixture (got 404): check methods and paths")
 	case http.StatusInternalServerError:
 		panic("Something bad happened on '" + testCase.description + "'")
 	}

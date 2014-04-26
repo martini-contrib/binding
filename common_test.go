@@ -76,7 +76,6 @@ func TestEnsureNotPointer(t *testing.T) {
 }
 
 const (
-	testRoute                = "/test"
-	formContentType          = "application/x-www-form-urlencoded"
-	multipartFormContentType = "multipart/form-data"
+	testRoute       = "/test"
+	formContentType = "application/x-www-form-urlencoded"
 )
