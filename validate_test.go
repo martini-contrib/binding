@@ -170,8 +170,11 @@ func performValidationTest(t *testing.T, testCase validationTestCase) {
 
 	m.ServeHTTP(httpRecorder, req)
 
-	if httpRecorder.Code == http.StatusNotFound {
+	switch httpRecorder.Code {
+	case http.StatusNotFound:
 		panic("Routing is messed up in test fixture (got 404): check method and path")
+	case http.StatusInternalServerError:
+		panic("Something bad happened on '" + testCase.description + "'")
 	}
 }
 
