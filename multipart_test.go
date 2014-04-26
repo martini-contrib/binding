@@ -102,11 +102,14 @@ func performMultipartFormTest(t *testing.T, testCase multipartFormTestCase) {
 // Writes the input from a test case into a buffer using the multipart writer.
 func makeMultipartPayload(testCase multipartFormTestCase) (*bytes.Buffer, *multipart.Writer) {
 	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
 	if testCase.malformEncoding {
-		body.Write([]byte("%2 Woah, malformed!\n%0"))
-		return body, multipart.NewWriter(body)
+		// TODO: Break the multipart form parser which is apparently impervious!!
+		// (Get it to return an error.  I'm trying to get test coverage inside the
+		// code that handles this possibility...)
+		body.Write([]byte(`--` + writer.Boundary() + `\nContent-Disposition: form-data; name="foo"\n\n--` + writer.Boundary() + `--`))
+		return body, writer
 	} else {
-		writer := multipart.NewWriter(body)
 		writer.WriteField("title", testCase.inputAndExpected.Title)
 		writer.WriteField("content", testCase.inputAndExpected.Content)
 		writer.WriteField("id", strconv.Itoa(testCase.inputAndExpected.Id))
