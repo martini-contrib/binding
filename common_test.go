@@ -19,8 +19,8 @@ type (
 
 	// To be used as a nested struct (with a required field)
 	Person struct {
-		Name  string `json:"name" binding:"required"`
-		Email string `json:"email"`
+		Name  string `form:"name" json:"name" binding:"required"`
+		Email string `form:"email" json:"email"`
 	}
 
 	// For advanced test cases: multiple values, embedded
@@ -30,11 +30,12 @@ type (
 		Post
 		Id          int                     `form:"id" binding:"required"` // JSON not specified here for test coverage
 		Ignored     string                  `form:"-" json:"-"`
-		Ratings     []int                   `form:"ratings" json:"ratings"`
-		Author      Person                  `form:"author" json:"author"`
-		Coauthor    *Person                 `form:"coauthor" json:"coauthor"`
+		Ratings     []int                   `form:"rating" json:"ratings"`
+		Author      Person                  `json:"author"`
+		Coauthor    *Person                 `json:"coauthor"`
 		HeaderImage *multipart.FileHeader   `form:"headerImage"`
 		Pictures    []*multipart.FileHeader `form:"pictures"`
+		unexported  string                  `form:"unexported"`
 	}
 )
 
@@ -75,5 +76,7 @@ func TestEnsureNotPointer(t *testing.T) {
 }
 
 const (
-	testRoute = "/test"
+	testRoute                = "/test"
+	formContentType          = "application/x-www-form-urlencoded"
+	multipartFormContentType = "multipart/form-data"
 )

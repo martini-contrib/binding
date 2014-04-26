@@ -185,8 +185,8 @@ func validateStruct(errors Errors, obj interface{}) Errors {
 	for i := 0; i < typ.NumField(); i++ {
 		field := typ.Field(i)
 
-		// Skip ignored fields in the struct
-		if field.Tag.Get("form") == "-" {
+		// Skip ignored and unexported fields in the struct
+		if field.Tag.Get("form") == "-" || !val.Field(i).CanInterface() {
 			continue
 		}
 

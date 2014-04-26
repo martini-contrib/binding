@@ -2,7 +2,6 @@ package binding
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -11,85 +10,92 @@ import (
 	"github.com/go-martini/martini"
 )
 
-var jsonTestCases = []jsonTestCase{
+var formTestCases = []formTestCase{
 	{
 		description:   "Happy path",
 		shouldSucceed: true,
 		method:        "POST",
-		payload:       `{"title": "Glorious Post Title", "content": "Lorem ipsum dolor sit amet"}`,
-		contentType:   jsonContentType,
+		payload:       `title=Glorious+Post+Title&content=Lorem+ipsum+dolor+sit+amet`,
+		contentType:   formContentType,
 		expected:      Post{Title: "Glorious Post Title", Content: "Lorem ipsum dolor sit amet"},
-	},
-	{
-		description:   "Nil payload",
-		shouldSucceed: false,
-		method:        "POST",
-		payload:       `-nil-`,
-		contentType:   jsonContentType,
-		expected:      Post{},
 	},
 	{
 		description:   "Empty payload",
 		shouldSucceed: false,
 		method:        "POST",
 		payload:       ``,
-		contentType:   jsonContentType,
+		contentType:   formContentType,
 		expected:      Post{},
 	},
 	{
 		description:   "Empty content type",
-		shouldSucceed: true,
-		method:        "POST",
-		payload:       `{"title": "Glorious Post Title", "content": "Lorem ipsum dolor sit amet"}`,
-		contentType:   ``,
-		expected:      Post{Title: "Glorious Post Title", Content: "Lorem ipsum dolor sit amet"},
-	},
-	{
-		description:   "Malformed JSON",
 		shouldSucceed: false,
 		method:        "POST",
-		payload:       `{"title":"foo"`,
-		contentType:   jsonContentType,
+		payload:       `title=Glorious+Post+Title&content=Lorem+ipsum+dolor+sit+amet`,
+		contentType:   ``,
 		expected:      Post{},
 	},
 	{
-		description:   "Deserialization with nested and embedded struct",
-		shouldSucceed: true,
-		method:        "POST",
-		payload:       `{"title":"Glorious Post Title", "id":1, "author":{"name":"Matt Holt"}}`,
-		contentType:   jsonContentType,
-		expected:      BlogPost{Post: Post{Title: "Glorious Post Title"}, Id: 1, Author: Person{Name: "Matt Holt"}},
-	},
-	{
-		description:   "Required nested struct field not specified",
+		description:   "Malformed form body",
 		shouldSucceed: false,
 		method:        "POST",
-		payload:       `{"title":"Glorious Post Title", "id":1, "author":{}}`,
-		contentType:   jsonContentType,
-		expected:      BlogPost{Post: Post{Title: "Glorious Post Title"}, Id: 1},
+		payload:       `title=%2`,
+		contentType:   formContentType,
+		expected:      Post{},
+	},
+	{
+		description:   "With nested and embedded structs",
+		shouldSucceed: true,
+		method:        "POST",
+		payload:       `title=Glorious+Post+Title&id=1&name=Matt+Holt`,
+		contentType:   formContentType,
+		expected:      BlogPost{Post: Post{Title: "Glorious Post Title"}, Id: 1, Author: Person{Name: "Matt Holt"}},
 	},
 	{
 		description:   "Required embedded struct field not specified",
 		shouldSucceed: false,
 		method:        "POST",
-		payload:       `{"id":1, "author":{"name":"Matt Holt"}}`,
-		contentType:   jsonContentType,
+		payload:       `id=1&name=Matt+Holt`,
+		contentType:   formContentType,
 		expected:      BlogPost{Id: 1, Author: Person{Name: "Matt Holt"}},
+	},
+	{
+		description:   "Required nested struct field not specified",
+		shouldSucceed: false,
+		method:        "POST",
+		payload:       `title=Glorious+Post+Title&id=1`,
+		contentType:   formContentType,
+		expected:      BlogPost{Post: Post{Title: "Glorious Post Title"}, Id: 1},
+	},
+	{
+		description:   "Multiple values into slice",
+		shouldSucceed: true,
+		method:        "POST",
+		payload:       `title=Glorious+Post+Title&id=1&name=Matt+Holt&rating=4&rating=3&rating=5`,
+		contentType:   formContentType,
+		expected:      BlogPost{Post: Post{Title: "Glorious Post Title"}, Id: 1, Author: Person{Name: "Matt Holt"}, Ratings: []int{4, 3, 5}},
+	},
+	{
+		description:   "Unexported field",
+		shouldSucceed: true,
+		method:        "POST",
+		payload:       `title=Glorious+Post+Title&id=1&name=Matt+Holt&unexported=foo`,
+		contentType:   formContentType,
+		expected:      BlogPost{Post: Post{Title: "Glorious Post Title"}, Id: 1, Author: Person{Name: "Matt Holt"}},
 	},
 }
 
-func TestJson(t *testing.T) {
-	for _, testCase := range jsonTestCases {
-		performJsonTest(t, testCase)
+func TestForm(t *testing.T) {
+	for _, testCase := range formTestCases {
+		performFormTest(t, testCase)
 	}
 }
 
-func performJsonTest(t *testing.T, testCase jsonTestCase) {
-	var payload io.Reader
+func performFormTest(t *testing.T, testCase formTestCase) {
 	httpRecorder := httptest.NewRecorder()
 	m := martini.Classic()
 
-	jsonTestHandler := func(actual interface{}, errs Errors) {
+	formTestHandler := func(actual interface{}, errs Errors) {
 		if testCase.shouldSucceed && len(errs) > 0 {
 			t.Errorf("'%s' should have succeeded, but there were errors (%d):\n%+v",
 				testCase.description, len(errs), errs)
@@ -106,22 +112,16 @@ func performJsonTest(t *testing.T, testCase jsonTestCase) {
 
 	switch testCase.expected.(type) {
 	case Post:
-		m.Post(testRoute, Json(Post{}), func(actual Post, errs Errors) {
-			jsonTestHandler(actual, errs)
+		m.Post(testRoute, Form(Post{}), func(actual Post, errs Errors) {
+			formTestHandler(actual, errs)
 		})
 	case BlogPost:
-		m.Post(testRoute, Json(BlogPost{}), func(actual BlogPost, errs Errors) {
-			jsonTestHandler(actual, errs)
+		m.Post(testRoute, Form(BlogPost{}), func(actual BlogPost, errs Errors) {
+			formTestHandler(actual, errs)
 		})
 	}
 
-	if testCase.payload == "-nil-" {
-		payload = nil
-	} else {
-		payload = strings.NewReader(testCase.payload)
-	}
-
-	req, err := http.NewRequest(testCase.method, testRoute, payload)
+	req, err := http.NewRequest(testCase.method, testRoute, strings.NewReader(testCase.payload))
 	if err != nil {
 		panic(err)
 	}
@@ -138,7 +138,7 @@ func performJsonTest(t *testing.T, testCase jsonTestCase) {
 }
 
 type (
-	jsonTestCase struct {
+	formTestCase struct {
 		description   string
 		shouldSucceed bool
 		method        string
