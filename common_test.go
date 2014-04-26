@@ -3,6 +3,7 @@ package binding
 import (
 	"mime/multipart"
 	"net/http"
+	"testing"
 )
 
 // These types are mostly contrived examples, but they're used
@@ -46,6 +47,31 @@ func (p Post) Validate(errs Errors, req *http.Request) Errors {
 		})
 	}
 	return errs
+}
+
+func TestEnsureNotPointer(t *testing.T) {
+	shouldPanic := func() {
+		defer func() {
+			r := recover()
+			if r == nil {
+				t.Errorf("Should have panicked because argument is a pointer, but did NOT panic")
+			}
+		}()
+		ensureNotPointer(&Post{})
+	}
+
+	shouldNotPanic := func() {
+		defer func() {
+			r := recover()
+			if r != nil {
+				t.Errorf("Should NOT have panicked because argument is not a pointer, but did panic")
+			}
+		}()
+		ensureNotPointer(Post{})
+	}
+
+	shouldPanic()
+	shouldNotPanic()
 }
 
 const (
