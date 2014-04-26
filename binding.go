@@ -159,21 +159,21 @@ func Json(jsonStruct interface{}, ifacePtr ...interface{}) martini.Handler {
 }
 
 // Validate is middleware to enforce required fields. If the struct
-// passed in is a Validator, then the user-defined Validate method
+// passed in implements Validator, then the user-defined Validate method
 // is executed, and its errors are mapped to the context. This middleware
-// performs no error handling: it merely detects them and maps them.
+// performs no error handling: it merely detects errors and maps them.
 func Validate(obj interface{}) martini.Handler {
 	return func(context martini.Context, req *http.Request) {
 		var errors Errors
-		validateStruct(errors, obj)
+		errors = validateStruct(errors, obj)
 		if validator, ok := obj.(Validator); ok {
-			validator.Validate(errors, req)
+			errors = validator.Validate(errors, req)
 		}
 		context.Map(errors)
 	}
 }
 
-func validateStruct(errors Errors, obj interface{}) {
+func validateStruct(errors Errors, obj interface{}) Errors {
 	typ := reflect.TypeOf(obj)
 	val := reflect.ValueOf(obj)
 
@@ -193,8 +193,10 @@ func validateStruct(errors Errors, obj interface{}) {
 		fieldValue := val.Field(i).Interface()
 		zero := reflect.Zero(field.Type).Interface()
 
-		if field.Type.Kind() == reflect.Struct {
-			validateStruct(errors, fieldValue)
+		// Validate nested and embedded structs (if pointer, only do so if not nil)
+		if field.Type.Kind() == reflect.Struct ||
+			(field.Type.Kind() == reflect.Ptr && !reflect.DeepEqual(zero, fieldValue)) {
+			errors = validateStruct(errors, fieldValue)
 		}
 
 		if strings.Index(field.Tag.Get("binding"), "required") > -1 {
@@ -213,6 +215,7 @@ func validateStruct(errors Errors, obj interface{}) {
 			}
 		}
 	}
+	return errors
 }
 
 func mapForm(formStruct reflect.Value, form map[string][]string,
@@ -411,20 +414,43 @@ func (e Errors) Has(class string) bool {
 }
 
 type (
+	// Errors may be generated during deserialization, binding,
+	// or validation. This type is mapped to the context so you
+	// can inject it into your own handlers and use it in your
+	// application if you want all your errors to look the same.
 	Errors []Error
 
-	// An Error is generated when validation fails
+	// An Error is generated when validation fails.
 	Error struct {
-		FieldNames     []string `json:"fieldNames,omitempty"`
-		Classification string   `json:"classification,omitempty"`
-		Message        string   `json:"message,omitempty"`
+		// An error supports zero or more field names, because an
+		// error can morph three ways: (1) it can indicate something
+		// wrong with the request as a whole, (2) it can point to a
+		// specific problem with a particular input field, or (3) it
+		// can span multiple related input fields.
+		FieldNames []string `json:"fieldNames,omitempty"`
+
+		// The classification is like an error code, convenient to
+		// use when processing or categorizing an error programmatically.
+		Classification string `json:"classification,omitempty"`
+
+		// The message should be human-readable and detailed enough to
+		// pinpoint and resolve the problem, but it should be brief. For
+		// example, a payload of 100 objects in a JSON array might have
+		// an error in the 41st object. The message should help the
+		// end user find and fix the error with their request.
+		Message string `json:"message,omitempty"`
 	}
 
-	// Implement the Validator interface to define your own input
-	// validation before the request even gets to your application.
-	// The Validate method will be executed during the validation phase.
+	// Implement the Validator interface to handle some rudimentary
+	// request validation logic so your application doesn't have to.
 	Validator interface {
-		Validate(Errors, *http.Request)
+		// Validate validates that the request is OK. It is recommended
+		// that validation be limited to checking values for syntax and
+		// semantics, enough to know that you can make sense of the request
+		// in your application. For example, you might verify that a credit
+		// card number matches a valid pattern, but you probably wouldn't
+		// perform an actual credit card authorization here.
+		Validate(Errors, *http.Request) Errors
 	}
 )
 
