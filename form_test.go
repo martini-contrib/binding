@@ -104,11 +104,11 @@ var formTestCases = []formTestCase{
 
 func TestForm(t *testing.T) {
 	for _, testCase := range formTestCases {
-		performFormTest(t, testCase)
+		performFormTest(t, Form, testCase)
 	}
 }
 
-func performFormTest(t *testing.T, testCase formTestCase) {
+func performFormTest(t *testing.T, binder handlerFunc, testCase formTestCase) {
 	httpRecorder := httptest.NewRecorder()
 	m := martini.Classic()
 
@@ -129,11 +129,11 @@ func performFormTest(t *testing.T, testCase formTestCase) {
 
 	switch testCase.expected.(type) {
 	case Post:
-		m.Post(testRoute, Form(Post{}), func(actual Post, errs Errors) {
+		m.Post(testRoute, binder(Post{}), func(actual Post, errs Errors) {
 			formTestHandler(actual, errs)
 		})
 	case BlogPost:
-		m.Post(testRoute, Form(BlogPost{}), func(actual BlogPost, errs Errors) {
+		m.Post(testRoute, binder(BlogPost{}), func(actual BlogPost, errs Errors) {
 			formTestHandler(actual, errs)
 		})
 	}

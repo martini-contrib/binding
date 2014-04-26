@@ -45,6 +45,14 @@ var jsonTestCases = []jsonTestCase{
 		expected:      Post{Title: "Glorious Post Title", Content: "Lorem ipsum dolor sit amet"},
 	},
 	{
+		description:   "Unsupported content type",
+		shouldSucceed: true,
+		method:        "POST",
+		payload:       `{"title": "Glorious Post Title", "content": "Lorem ipsum dolor sit amet"}`,
+		contentType:   `BoGuS`,
+		expected:      Post{Title: "Glorious Post Title", Content: "Lorem ipsum dolor sit amet"},
+	},
+	{
 		description:   "Malformed JSON",
 		shouldSucceed: false,
 		method:        "POST",
@@ -80,11 +88,11 @@ var jsonTestCases = []jsonTestCase{
 
 func TestJson(t *testing.T) {
 	for _, testCase := range jsonTestCases {
-		performJsonTest(t, testCase)
+		performJsonTest(t, Json, testCase)
 	}
 }
 
-func performJsonTest(t *testing.T, testCase jsonTestCase) {
+func performJsonTest(t *testing.T, binder handlerFunc, testCase jsonTestCase) {
 	var payload io.Reader
 	httpRecorder := httptest.NewRecorder()
 	m := martini.Classic()
@@ -106,11 +114,11 @@ func performJsonTest(t *testing.T, testCase jsonTestCase) {
 
 	switch testCase.expected.(type) {
 	case Post:
-		m.Post(testRoute, Json(Post{}), func(actual Post, errs Errors) {
+		m.Post(testRoute, binder(Post{}), func(actual Post, errs Errors) {
 			jsonTestHandler(actual, errs)
 		})
 	case BlogPost:
-		m.Post(testRoute, Json(BlogPost{}), func(actual BlogPost, errs Errors) {
+		m.Post(testRoute, binder(BlogPost{}), func(actual BlogPost, errs Errors) {
 			jsonTestHandler(actual, errs)
 		})
 	}

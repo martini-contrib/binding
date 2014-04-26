@@ -15,7 +15,7 @@ import (
 )
 
 /*
-	To the land of Middle-ware Earth:
+	For the land of Middle-ware Earth:
 		One func to rule them all,
 		One func to find them,
 		One func to bring them all,

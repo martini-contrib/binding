@@ -4,6 +4,8 @@ import (
 	"mime/multipart"
 	"net/http"
 	"testing"
+
+	"github.com/go-martini/martini"
 )
 
 // These types are mostly contrived examples, but they're used
@@ -37,6 +39,9 @@ type (
 		Pictures    []*multipart.FileHeader `form:"pictures"`
 		unexported  string                  `form:"unexported"`
 	}
+
+	// The common function signature of the handlers going under test.
+	handlerFunc func(interface{}, ...interface{}) martini.Handler
 )
 
 func (p Post) Validate(errs Errors, req *http.Request) Errors {

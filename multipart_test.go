@@ -52,15 +52,15 @@ var multipartFormTestCases = []multipartFormTestCase{
 
 func TestMultipartForm(t *testing.T) {
 	for _, testCase := range multipartFormTestCases {
-		performMultipartFormTest(t, testCase)
+		performMultipartFormTest(t, MultipartForm, testCase)
 	}
 }
 
-func performMultipartFormTest(t *testing.T, testCase multipartFormTestCase) {
+func performMultipartFormTest(t *testing.T, binder handlerFunc, testCase multipartFormTestCase) {
 	httpRecorder := httptest.NewRecorder()
 	m := martini.Classic()
 
-	m.Post(testRoute, MultipartForm(BlogPost{}), func(actual BlogPost, errs Errors) {
+	m.Post(testRoute, binder(BlogPost{}), func(actual BlogPost, errs Errors) {
 		if testCase.shouldSucceed && len(errs) > 0 {
 			t.Errorf("'%s' should have succeeded, but there were errors (%d):\n%+v",
 				testCase.description, len(errs), errs)
