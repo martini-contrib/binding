@@ -20,6 +20,14 @@ var jsonTestCases = []jsonTestCase{
 		expected:            Post{Title: "Glorious Post Title", Content: "Lorem ipsum dolor sit amet"},
 	},
 	{
+		description:         "Happy path with interface",
+		shouldSucceedOnJson: true,
+		withInterface:       true,
+		payload:             `{"title": "Glorious Post Title", "content": "Lorem ipsum dolor sit amet"}`,
+		contentType:         jsonContentType,
+		expected:            Post{Title: "Glorious Post Title", Content: "Lorem ipsum dolor sit amet"},
+	},
+	{
 		description:         "Nil payload",
 		shouldSucceedOnJson: false,
 		payload:             `-nil-`,
@@ -59,6 +67,14 @@ var jsonTestCases = []jsonTestCase{
 	{
 		description:         "Deserialization with nested and embedded struct",
 		shouldSucceedOnJson: true,
+		payload:             `{"title":"Glorious Post Title", "id":1, "author":{"name":"Matt Holt"}}`,
+		contentType:         jsonContentType,
+		expected:            BlogPost{Post: Post{Title: "Glorious Post Title"}, Id: 1, Author: Person{Name: "Matt Holt"}},
+	},
+	{
+		description:         "Deserialization with nested and embedded struct with interface",
+		shouldSucceedOnJson: true,
+		withInterface:       true,
 		payload:             `{"title":"Glorious Post Title", "id":1, "author":{"name":"Matt Holt"}}`,
 		contentType:         jsonContentType,
 		expected:            BlogPost{Post: Post{Title: "Glorious Post Title"}, Id: 1, Author: Person{Name: "Matt Holt"}},
@@ -107,13 +123,34 @@ func performJsonTest(t *testing.T, binder handlerFunc, testCase jsonTestCase) {
 
 	switch testCase.expected.(type) {
 	case Post:
-		m.Post(testRoute, binder(Post{}), func(actual Post, errs Errors) {
-			jsonTestHandler(actual, errs)
-		})
+		if testCase.withInterface {
+			m.Post(testRoute, binder(Post{}, (*Modeler)(nil)), func(actual Post, iface Modeler, errs Errors) {
+				if actual.Title != iface.Model() {
+					t.Errorf("For '%s': expected the struct to be mapped to the context as an interface",
+						testCase.description)
+				}
+				jsonTestHandler(actual, errs)
+			})
+		} else {
+			m.Post(testRoute, binder(Post{}), func(actual Post, errs Errors) {
+				jsonTestHandler(actual, errs)
+			})
+		}
+
 	case BlogPost:
-		m.Post(testRoute, binder(BlogPost{}), func(actual BlogPost, errs Errors) {
-			jsonTestHandler(actual, errs)
-		})
+		if testCase.withInterface {
+			m.Post(testRoute, binder(BlogPost{}, (*Modeler)(nil)), func(actual BlogPost, iface Modeler, errs Errors) {
+				if actual.Title != iface.Model() {
+					t.Errorf("For '%s': expected the struct to be mapped to the context as an interface",
+						testCase.description)
+				}
+				jsonTestHandler(actual, errs)
+			})
+		} else {
+			m.Post(testRoute, binder(BlogPost{}), func(actual BlogPost, errs Errors) {
+				jsonTestHandler(actual, errs)
+			})
+		}
 	}
 
 	if testCase.payload == "-nil-" {
@@ -136,9 +173,10 @@ func performJsonTest(t *testing.T, binder handlerFunc, testCase jsonTestCase) {
 	case http.StatusInternalServerError:
 		panic("Something bad happened on '" + testCase.description + "'")
 	default:
-		if testCase.shouldSucceedOnJson && httpRecorder.Code != http.StatusOK &&
+		if testCase.shouldSucceedOnJson &&
+			httpRecorder.Code != http.StatusOK &&
 			!testCase.shouldFailOnBind {
-			t.Errorf("'%s' should have succeeded, but returned HTTP status %d and body '%s'",
+			t.Errorf("'%s' should have succeeded (except when using Bind, where it should fail), but returned HTTP status %d with body '%s'",
 				testCase.description, httpRecorder.Code, httpRecorder.Body.String())
 		}
 	}
@@ -147,6 +185,7 @@ func performJsonTest(t *testing.T, binder handlerFunc, testCase jsonTestCase) {
 type (
 	jsonTestCase struct {
 		description         string
+		withInterface       bool
 		shouldSucceedOnJson bool
 		shouldFailOnBind    bool
 		payload             string

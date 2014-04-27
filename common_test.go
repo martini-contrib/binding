@@ -42,6 +42,15 @@ type (
 
 	// The common function signature of the handlers going under test.
 	handlerFunc func(interface{}, ...interface{}) martini.Handler
+
+	// Used for testing mapping an interface to the context
+	// If used (withInterface = true in the testCases), a Modeler
+	// should be mapped to the context as well as BlogPost, meaning
+	// you can receive a Modeler in your application instead of a
+	// concrete BlogPost.
+	Modeler interface {
+		Model() string
+	}
 )
 
 func (p Post) Validate(errs Errors, req *http.Request) Errors {
@@ -53,6 +62,10 @@ func (p Post) Validate(errs Errors, req *http.Request) Errors {
 		})
 	}
 	return errs
+}
+
+func (p Post) Model() string {
+	return p.Title
 }
 
 func TestEnsureNotPointer(t *testing.T) {

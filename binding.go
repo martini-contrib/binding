@@ -58,8 +58,6 @@ func Bind(obj interface{}, ifacePtr ...interface{}) martini.Handler {
 				}
 				context.Map(errors)
 			}
-		} else {
-			context.Invoke(Form(obj, ifacePtr...))
 		}
 
 		context.Invoke(ErrorHandler)

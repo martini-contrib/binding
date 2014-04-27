@@ -19,6 +19,14 @@ var formTestCases = []formTestCase{
 		expected:      Post{Title: "Glorious Post Title", Content: "Lorem ipsum dolor sit amet"},
 	},
 	{
+		description:   "Happy path with interface",
+		shouldSucceed: true,
+		withInterface: true,
+		payload:       `title=Glorious+Post+Title&content=Lorem+ipsum+dolor+sit+amet`,
+		contentType:   formContentType,
+		expected:      Post{Title: "Glorious Post Title", Content: "Lorem ipsum dolor sit amet"},
+	},
+	{
 		description:   "Empty payload",
 		shouldSucceed: false,
 		payload:       ``,
@@ -118,13 +126,34 @@ func performFormTest(t *testing.T, binder handlerFunc, testCase formTestCase) {
 
 	switch testCase.expected.(type) {
 	case Post:
-		m.Post(testRoute, binder(Post{}), func(actual Post, errs Errors) {
-			formTestHandler(actual, errs)
-		})
+		if testCase.withInterface {
+			m.Post(testRoute, binder(Post{}, (*Modeler)(nil)), func(actual Post, iface Modeler, errs Errors) {
+				if actual.Title != iface.Model() {
+					t.Errorf("For '%s': expected the struct to be mapped to the context as an interface",
+						testCase.description)
+				}
+				formTestHandler(actual, errs)
+			})
+		} else {
+			m.Post(testRoute, binder(Post{}), func(actual Post, errs Errors) {
+				formTestHandler(actual, errs)
+			})
+		}
+
 	case BlogPost:
-		m.Post(testRoute, binder(BlogPost{}), func(actual BlogPost, errs Errors) {
-			formTestHandler(actual, errs)
-		})
+		if testCase.withInterface {
+			m.Post(testRoute, binder(BlogPost{}, (*Modeler)(nil)), func(actual BlogPost, iface Modeler, errs Errors) {
+				if actual.Title != iface.Model() {
+					t.Errorf("For '%s': expected the struct to be mapped to the context as an interface",
+						testCase.description)
+				}
+				formTestHandler(actual, errs)
+			})
+		} else {
+			m.Post(testRoute, binder(BlogPost{}), func(actual BlogPost, errs Errors) {
+				formTestHandler(actual, errs)
+			})
+		}
 	}
 
 	req, err := http.NewRequest("POST", testRoute+testCase.queryString, strings.NewReader(testCase.payload))
@@ -147,6 +176,7 @@ type (
 	formTestCase struct {
 		description   string
 		shouldSucceed bool
+		withInterface bool
 		queryString   string
 		payload       string
 		contentType   string
