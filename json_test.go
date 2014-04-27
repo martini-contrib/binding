@@ -13,67 +13,69 @@ import (
 
 var jsonTestCases = []jsonTestCase{
 	{
-		description:   "Happy path",
-		shouldSucceed: true,
-		payload:       `{"title": "Glorious Post Title", "content": "Lorem ipsum dolor sit amet"}`,
-		contentType:   jsonContentType,
-		expected:      Post{Title: "Glorious Post Title", Content: "Lorem ipsum dolor sit amet"},
+		description:         "Happy path",
+		shouldSucceedOnJson: true,
+		payload:             `{"title": "Glorious Post Title", "content": "Lorem ipsum dolor sit amet"}`,
+		contentType:         jsonContentType,
+		expected:            Post{Title: "Glorious Post Title", Content: "Lorem ipsum dolor sit amet"},
 	},
 	{
-		description:   "Nil payload",
-		shouldSucceed: false,
-		payload:       `-nil-`,
-		contentType:   jsonContentType,
-		expected:      Post{},
+		description:         "Nil payload",
+		shouldSucceedOnJson: false,
+		payload:             `-nil-`,
+		contentType:         jsonContentType,
+		expected:            Post{},
 	},
 	{
-		description:   "Empty payload",
-		shouldSucceed: false,
-		payload:       ``,
-		contentType:   jsonContentType,
-		expected:      Post{},
+		description:         "Empty payload",
+		shouldSucceedOnJson: false,
+		payload:             ``,
+		contentType:         jsonContentType,
+		expected:            Post{},
 	},
 	{
-		description:   "Empty content type",
-		shouldSucceed: true,
-		payload:       `{"title": "Glorious Post Title", "content": "Lorem ipsum dolor sit amet"}`,
-		contentType:   ``,
-		expected:      Post{Title: "Glorious Post Title", Content: "Lorem ipsum dolor sit amet"},
+		description:         "Empty content type",
+		shouldSucceedOnJson: true,
+		shouldFailOnBind:    true,
+		payload:             `{"title": "Glorious Post Title", "content": "Lorem ipsum dolor sit amet"}`,
+		contentType:         ``,
+		expected:            Post{Title: "Glorious Post Title", Content: "Lorem ipsum dolor sit amet"},
 	},
 	{
-		description:   "Unsupported content type",
-		shouldSucceed: true,
-		payload:       `{"title": "Glorious Post Title", "content": "Lorem ipsum dolor sit amet"}`,
-		contentType:   `BoGuS`,
-		expected:      Post{Title: "Glorious Post Title", Content: "Lorem ipsum dolor sit amet"},
+		description:         "Unsupported content type",
+		shouldSucceedOnJson: true,
+		shouldFailOnBind:    true,
+		payload:             `{"title": "Glorious Post Title", "content": "Lorem ipsum dolor sit amet"}`,
+		contentType:         `BoGuS`,
+		expected:            Post{Title: "Glorious Post Title", Content: "Lorem ipsum dolor sit amet"},
 	},
 	{
-		description:   "Malformed JSON",
-		shouldSucceed: false,
-		payload:       `{"title":"foo"`,
-		contentType:   jsonContentType,
-		expected:      Post{},
+		description:         "Malformed JSON",
+		shouldSucceedOnJson: false,
+		payload:             `{"title":"foo"`,
+		contentType:         jsonContentType,
+		expected:            Post{},
 	},
 	{
-		description:   "Deserialization with nested and embedded struct",
-		shouldSucceed: true,
-		payload:       `{"title":"Glorious Post Title", "id":1, "author":{"name":"Matt Holt"}}`,
-		contentType:   jsonContentType,
-		expected:      BlogPost{Post: Post{Title: "Glorious Post Title"}, Id: 1, Author: Person{Name: "Matt Holt"}},
+		description:         "Deserialization with nested and embedded struct",
+		shouldSucceedOnJson: true,
+		payload:             `{"title":"Glorious Post Title", "id":1, "author":{"name":"Matt Holt"}}`,
+		contentType:         jsonContentType,
+		expected:            BlogPost{Post: Post{Title: "Glorious Post Title"}, Id: 1, Author: Person{Name: "Matt Holt"}},
 	},
 	{
-		description:   "Required nested struct field not specified",
-		shouldSucceed: false,
-		payload:       `{"title":"Glorious Post Title", "id":1, "author":{}}`,
-		contentType:   jsonContentType,
-		expected:      BlogPost{Post: Post{Title: "Glorious Post Title"}, Id: 1},
+		description:         "Required nested struct field not specified",
+		shouldSucceedOnJson: false,
+		payload:             `{"title":"Glorious Post Title", "id":1, "author":{}}`,
+		contentType:         jsonContentType,
+		expected:            BlogPost{Post: Post{Title: "Glorious Post Title"}, Id: 1},
 	},
 	{
-		description:   "Required embedded struct field not specified",
-		shouldSucceed: false,
-		payload:       `{"id":1, "author":{"name":"Matt Holt"}}`,
-		contentType:   jsonContentType,
-		expected:      BlogPost{Id: 1, Author: Person{Name: "Matt Holt"}},
+		description:         "Required embedded struct field not specified",
+		shouldSucceedOnJson: false,
+		payload:             `{"id":1, "author":{"name":"Matt Holt"}}`,
+		contentType:         jsonContentType,
+		expected:            BlogPost{Id: 1, Author: Person{Name: "Matt Holt"}},
 	},
 }
 
@@ -89,10 +91,10 @@ func performJsonTest(t *testing.T, binder handlerFunc, testCase jsonTestCase) {
 	m := martini.Classic()
 
 	jsonTestHandler := func(actual interface{}, errs Errors) {
-		if testCase.shouldSucceed && len(errs) > 0 {
+		if testCase.shouldSucceedOnJson && len(errs) > 0 {
 			t.Errorf("'%s' should have succeeded, but there were errors (%d):\n%+v",
 				testCase.description, len(errs), errs)
-		} else if !testCase.shouldSucceed && len(errs) == 0 {
+		} else if !testCase.shouldSucceedOnJson && len(errs) == 0 {
 			t.Errorf("'%s' should NOT have succeeded, but there were NO errors", testCase.description)
 		}
 		expString := fmt.Sprintf("%+v", testCase.expected)
@@ -133,15 +135,22 @@ func performJsonTest(t *testing.T, binder handlerFunc, testCase jsonTestCase) {
 		panic("Routing is messed up in test fixture (got 404): check method and path")
 	case http.StatusInternalServerError:
 		panic("Something bad happened on '" + testCase.description + "'")
+	default:
+		if testCase.shouldSucceedOnJson && httpRecorder.Code != http.StatusOK &&
+			!testCase.shouldFailOnBind {
+			t.Errorf("'%s' should have succeeded, but returned HTTP status %d and body '%s'",
+				testCase.description, httpRecorder.Code, httpRecorder.Body.String())
+		}
 	}
 }
 
 type (
 	jsonTestCase struct {
-		description   string
-		shouldSucceed bool
-		payload       string
-		contentType   string
-		expected      interface{}
+		description         string
+		shouldSucceedOnJson bool
+		shouldFailOnBind    bool
+		payload             string
+		contentType         string
+		expected            interface{}
 	}
 )
