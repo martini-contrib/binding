@@ -3,7 +3,6 @@ package binding
 import (
 	"mime/multipart"
 	"net/http"
-	"testing"
 
 	"github.com/go-martini/martini"
 )
@@ -44,11 +43,11 @@ type (
 	handlerFunc func(interface{}, ...interface{}) martini.Handler
 
 	// Used for testing mapping an interface to the context
-	// If used (withInterface = true in the testCases), a Modeler
+	// If used (withInterface = true in the testCases), a modeler
 	// should be mapped to the context as well as BlogPost, meaning
-	// you can receive a Modeler in your application instead of a
+	// you can receive a modeler in your application instead of a
 	// concrete BlogPost.
-	Modeler interface {
+	modeler interface {
 		Model() string
 	}
 )
@@ -66,31 +65,6 @@ func (p Post) Validate(errs Errors, req *http.Request) Errors {
 
 func (p Post) Model() string {
 	return p.Title
-}
-
-func TestEnsureNotPointer(t *testing.T) {
-	shouldPanic := func() {
-		defer func() {
-			r := recover()
-			if r == nil {
-				t.Errorf("Should have panicked because argument is a pointer, but did NOT panic")
-			}
-		}()
-		ensureNotPointer(&Post{})
-	}
-
-	shouldNotPanic := func() {
-		defer func() {
-			r := recover()
-			if r != nil {
-				t.Errorf("Should NOT have panicked because argument is not a pointer, but did panic")
-			}
-		}()
-		ensureNotPointer(Post{})
-	}
-
-	shouldPanic()
-	shouldNotPanic()
 }
 
 const (

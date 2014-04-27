@@ -124,7 +124,7 @@ func performJsonTest(t *testing.T, binder handlerFunc, testCase jsonTestCase) {
 	switch testCase.expected.(type) {
 	case Post:
 		if testCase.withInterface {
-			m.Post(testRoute, binder(Post{}, (*Modeler)(nil)), func(actual Post, iface Modeler, errs Errors) {
+			m.Post(testRoute, binder(Post{}, (*modeler)(nil)), func(actual Post, iface modeler, errs Errors) {
 				if actual.Title != iface.Model() {
 					t.Errorf("For '%s': expected the struct to be mapped to the context as an interface",
 						testCase.description)
@@ -139,7 +139,7 @@ func performJsonTest(t *testing.T, binder handlerFunc, testCase jsonTestCase) {
 
 	case BlogPost:
 		if testCase.withInterface {
-			m.Post(testRoute, binder(BlogPost{}, (*Modeler)(nil)), func(actual BlogPost, iface Modeler, errs Errors) {
+			m.Post(testRoute, binder(BlogPost{}, (*modeler)(nil)), func(actual BlogPost, iface modeler, errs Errors) {
 				if actual.Title != iface.Model() {
 					t.Errorf("For '%s': expected the struct to be mapped to the context as an interface",
 						testCase.description)
