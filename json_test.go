@@ -15,7 +15,6 @@ var jsonTestCases = []jsonTestCase{
 	{
 		description:   "Happy path",
 		shouldSucceed: true,
-		method:        "POST",
 		payload:       `{"title": "Glorious Post Title", "content": "Lorem ipsum dolor sit amet"}`,
 		contentType:   jsonContentType,
 		expected:      Post{Title: "Glorious Post Title", Content: "Lorem ipsum dolor sit amet"},
@@ -23,7 +22,6 @@ var jsonTestCases = []jsonTestCase{
 	{
 		description:   "Nil payload",
 		shouldSucceed: false,
-		method:        "POST",
 		payload:       `-nil-`,
 		contentType:   jsonContentType,
 		expected:      Post{},
@@ -31,7 +29,6 @@ var jsonTestCases = []jsonTestCase{
 	{
 		description:   "Empty payload",
 		shouldSucceed: false,
-		method:        "POST",
 		payload:       ``,
 		contentType:   jsonContentType,
 		expected:      Post{},
@@ -39,7 +36,6 @@ var jsonTestCases = []jsonTestCase{
 	{
 		description:   "Empty content type",
 		shouldSucceed: true,
-		method:        "POST",
 		payload:       `{"title": "Glorious Post Title", "content": "Lorem ipsum dolor sit amet"}`,
 		contentType:   ``,
 		expected:      Post{Title: "Glorious Post Title", Content: "Lorem ipsum dolor sit amet"},
@@ -47,7 +43,6 @@ var jsonTestCases = []jsonTestCase{
 	{
 		description:   "Unsupported content type",
 		shouldSucceed: true,
-		method:        "POST",
 		payload:       `{"title": "Glorious Post Title", "content": "Lorem ipsum dolor sit amet"}`,
 		contentType:   `BoGuS`,
 		expected:      Post{Title: "Glorious Post Title", Content: "Lorem ipsum dolor sit amet"},
@@ -55,7 +50,6 @@ var jsonTestCases = []jsonTestCase{
 	{
 		description:   "Malformed JSON",
 		shouldSucceed: false,
-		method:        "POST",
 		payload:       `{"title":"foo"`,
 		contentType:   jsonContentType,
 		expected:      Post{},
@@ -63,7 +57,6 @@ var jsonTestCases = []jsonTestCase{
 	{
 		description:   "Deserialization with nested and embedded struct",
 		shouldSucceed: true,
-		method:        "POST",
 		payload:       `{"title":"Glorious Post Title", "id":1, "author":{"name":"Matt Holt"}}`,
 		contentType:   jsonContentType,
 		expected:      BlogPost{Post: Post{Title: "Glorious Post Title"}, Id: 1, Author: Person{Name: "Matt Holt"}},
@@ -71,7 +64,6 @@ var jsonTestCases = []jsonTestCase{
 	{
 		description:   "Required nested struct field not specified",
 		shouldSucceed: false,
-		method:        "POST",
 		payload:       `{"title":"Glorious Post Title", "id":1, "author":{}}`,
 		contentType:   jsonContentType,
 		expected:      BlogPost{Post: Post{Title: "Glorious Post Title"}, Id: 1},
@@ -79,7 +71,6 @@ var jsonTestCases = []jsonTestCase{
 	{
 		description:   "Required embedded struct field not specified",
 		shouldSucceed: false,
-		method:        "POST",
 		payload:       `{"id":1, "author":{"name":"Matt Holt"}}`,
 		contentType:   jsonContentType,
 		expected:      BlogPost{Id: 1, Author: Person{Name: "Matt Holt"}},
@@ -129,7 +120,7 @@ func performJsonTest(t *testing.T, binder handlerFunc, testCase jsonTestCase) {
 		payload = strings.NewReader(testCase.payload)
 	}
 
-	req, err := http.NewRequest(testCase.method, testRoute, payload)
+	req, err := http.NewRequest("POST", testRoute, payload)
 	if err != nil {
 		panic(err)
 	}
@@ -149,7 +140,6 @@ type (
 	jsonTestCase struct {
 		description   string
 		shouldSucceed bool
-		method        string
 		payload       string
 		contentType   string
 		expected      interface{}

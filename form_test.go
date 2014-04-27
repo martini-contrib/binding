@@ -14,7 +14,6 @@ var formTestCases = []formTestCase{
 	{
 		description:   "Happy path",
 		shouldSucceed: true,
-		method:        "POST",
 		payload:       `title=Glorious+Post+Title&content=Lorem+ipsum+dolor+sit+amet`,
 		contentType:   formContentType,
 		expected:      Post{Title: "Glorious Post Title", Content: "Lorem ipsum dolor sit amet"},
@@ -22,7 +21,6 @@ var formTestCases = []formTestCase{
 	{
 		description:   "Empty payload",
 		shouldSucceed: false,
-		method:        "POST",
 		payload:       ``,
 		contentType:   formContentType,
 		expected:      Post{},
@@ -30,7 +28,6 @@ var formTestCases = []formTestCase{
 	{
 		description:   "Empty content type",
 		shouldSucceed: false,
-		method:        "POST",
 		payload:       `title=Glorious+Post+Title&content=Lorem+ipsum+dolor+sit+amet`,
 		contentType:   ``,
 		expected:      Post{},
@@ -38,7 +35,6 @@ var formTestCases = []formTestCase{
 	{
 		description:   "Malformed form body",
 		shouldSucceed: false,
-		method:        "POST",
 		payload:       `title=%2`,
 		contentType:   formContentType,
 		expected:      Post{},
@@ -46,7 +42,6 @@ var formTestCases = []formTestCase{
 	{
 		description:   "With nested and embedded structs",
 		shouldSucceed: true,
-		method:        "POST",
 		payload:       `title=Glorious+Post+Title&id=1&name=Matt+Holt`,
 		contentType:   formContentType,
 		expected:      BlogPost{Post: Post{Title: "Glorious Post Title"}, Id: 1, Author: Person{Name: "Matt Holt"}},
@@ -54,7 +49,6 @@ var formTestCases = []formTestCase{
 	{
 		description:   "Required embedded struct field not specified",
 		shouldSucceed: false,
-		method:        "POST",
 		payload:       `id=1&name=Matt+Holt`,
 		contentType:   formContentType,
 		expected:      BlogPost{Id: 1, Author: Person{Name: "Matt Holt"}},
@@ -62,7 +56,6 @@ var formTestCases = []formTestCase{
 	{
 		description:   "Required nested struct field not specified",
 		shouldSucceed: false,
-		method:        "POST",
 		payload:       `title=Glorious+Post+Title&id=1`,
 		contentType:   formContentType,
 		expected:      BlogPost{Post: Post{Title: "Glorious Post Title"}, Id: 1},
@@ -70,7 +63,6 @@ var formTestCases = []formTestCase{
 	{
 		description:   "Multiple values into slice",
 		shouldSucceed: true,
-		method:        "POST",
 		payload:       `title=Glorious+Post+Title&id=1&name=Matt+Holt&rating=4&rating=3&rating=5`,
 		contentType:   formContentType,
 		expected:      BlogPost{Post: Post{Title: "Glorious Post Title"}, Id: 1, Author: Person{Name: "Matt Holt"}, Ratings: []int{4, 3, 5}},
@@ -78,7 +70,6 @@ var formTestCases = []formTestCase{
 	{
 		description:   "Unexported field",
 		shouldSucceed: true,
-		method:        "POST",
 		payload:       `title=Glorious+Post+Title&id=1&name=Matt+Holt&unexported=foo`,
 		contentType:   formContentType,
 		expected:      BlogPost{Post: Post{Title: "Glorious Post Title"}, Id: 1, Author: Person{Name: "Matt Holt"}},
@@ -86,7 +77,6 @@ var formTestCases = []formTestCase{
 	{
 		description:   "Query string POST",
 		shouldSucceed: true,
-		method:        "POST",
 		payload:       `title=Glorious+Post+Title&content=Lorem+ipsum+dolor+sit+amet`,
 		contentType:   formContentType,
 		expected:      Post{Title: "Glorious Post Title", Content: "Lorem ipsum dolor sit amet"},
@@ -94,7 +84,6 @@ var formTestCases = []formTestCase{
 	{
 		description:   "Query string",
 		shouldSucceed: true,
-		method:        "POST",
 		queryString:   "?title=Glorious+Post+Title&content=Lorem+ipsum+dolor+sit+amet",
 		payload:       ``,
 		contentType:   formContentType,
@@ -138,7 +127,7 @@ func performFormTest(t *testing.T, binder handlerFunc, testCase formTestCase) {
 		})
 	}
 
-	req, err := http.NewRequest(testCase.method, testRoute+testCase.queryString, strings.NewReader(testCase.payload))
+	req, err := http.NewRequest("POST", testRoute+testCase.queryString, strings.NewReader(testCase.payload))
 	if err != nil {
 		panic(err)
 	}
@@ -158,7 +147,6 @@ type (
 	formTestCase struct {
 		description   string
 		shouldSucceed bool
-		method        string
 		queryString   string
 		payload       string
 		contentType   string

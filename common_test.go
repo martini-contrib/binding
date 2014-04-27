@@ -36,7 +36,7 @@ type (
 		Author      Person                  `json:"author"`
 		Coauthor    *Person                 `json:"coauthor"`
 		HeaderImage *multipart.FileHeader   `form:"headerImage"`
-		Pictures    []*multipart.FileHeader `form:"pictures"`
+		Pictures    []*multipart.FileHeader `form:"picture"`
 		unexported  string                  `form:"unexported"`
 	}
 
