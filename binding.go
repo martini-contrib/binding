@@ -1,5 +1,6 @@
-// Package binding transforms, with validation, a raw request into
-// a populated structure used by your application logic.
+// Package binding transforms a raw request into a struct
+// ready to be used your application. It can also perform
+// validation on the data and handle errors.
 package binding
 
 import (
@@ -22,9 +23,7 @@ import (
 		And in this package BIND them.
 */
 
-// Bind accepts a copy of an empty struct and populates it with
-// values from the request (if deserialization is successful). It
-// wraps up the functionality of the Form and Json middleware
+// Bind wraps up the functionality of the Form and Json middleware
 // according to the Content-Type and verb of the request.
 // A Content-Type is required for POST and PUT requests.
 // Bind invokes the ErrorHandler middleware to bail out if errors
@@ -96,6 +95,10 @@ func Form(formStruct interface{}, ifacePtr ...interface{}) martini.Handler {
 	}
 }
 
+// MultipartForm works much like Form, except it can parse multipart forms
+// and handle file uploads. Like the other deserialization middleware handlers,
+// you can pass in an interface to make the interface available for injection
+// into other handlers later.
 func MultipartForm(formStruct interface{}, ifacePtr ...interface{}) martini.Handler {
 	return func(context martini.Context, req *http.Request) {
 		var errors Errors
@@ -171,6 +174,7 @@ func Validate(obj interface{}) martini.Handler {
 	}
 }
 
+// Performs required field checking on a struct
 func validateStruct(errors Errors, obj interface{}) Errors {
 	typ := reflect.TypeOf(obj)
 	val := reflect.ValueOf(obj)
@@ -216,6 +220,7 @@ func validateStruct(errors Errors, obj interface{}) Errors {
 	return errors
 }
 
+// Takes values from the form data and puts them into a struct
 func mapForm(formStruct reflect.Value, form map[string][]string,
 	formfile map[string][]*multipart.FileHeader, errors Errors) {
 
@@ -398,10 +403,14 @@ func validateAndMap(obj reflect.Value, context martini.Context, errors Errors, i
 	}
 }
 
+// getErrors simply gets the errors from the context; it's kind of a chore
 func getErrors(context martini.Context) Errors {
 	return context.Get(reflect.TypeOf(Errors{})).Interface().(Errors)
 }
 
+// Has determines whether an Errors slice has an Error with
+// a given classification in it; it does not search on messages
+// or field names.
 func (e Errors) Has(class string) bool {
 	for _, err := range e {
 		if err.Classification == class {
