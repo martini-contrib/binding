@@ -382,7 +382,6 @@ func setWithProperType(valueKind reflect.Kind, val string, structField reflect.V
 }
 
 // Don't pass in pointers to bind to. Can lead to bugs. See:
-// https://github.com/codegangsta/martini-contrib/issues/40
 // https://github.com/codegangsta/martini-contrib/pull/34#issuecomment-29683659
 func ensureNotPointer(obj interface{}) {
 	if reflect.TypeOf(obj).Kind() == reflect.Ptr {
