@@ -46,9 +46,9 @@ That's it! The `binding.Bind` function takes care of validating required fields.
 If you want additional validation beyond just checking required fields, your struct can implement the `binding.Validator` interface like so:
 
 ```go
-func (cf ContactForm) Validate(errors Errors, req *http.Request) Errors {
+func (cf ContactForm) Validate(errors binding.Errors, req *http.Request) binding.Errors {
 	if strings.Contains(cf.Message, "Go needs generics") {
-		errors = append(errors, Error{
+		errors = append(errors, binding.Error{
 			FieldNames:     []string{"message"},
 			Classification: "ComplaintError",
 			Message:        "Go has generics. They're called interfaces.",
