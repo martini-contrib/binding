@@ -197,7 +197,8 @@ func validateStruct(errors Errors, obj interface{}) Errors {
 
 		// Validate nested and embedded structs (if pointer, only do so if not nil)
 		if field.Type.Kind() == reflect.Struct ||
-			(field.Type.Kind() == reflect.Ptr && !reflect.DeepEqual(zero, fieldValue)) {
+			(field.Type.Kind() == reflect.Ptr && !reflect.DeepEqual(zero, fieldValue) &&
+				field.Type.Elem().Kind() == reflect.Struct) {
 			errors = validateStruct(errors, fieldValue)
 		}
 
