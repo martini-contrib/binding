@@ -2,7 +2,7 @@
 
 Request data binding and validation for Martini.
 
-[Documentation on GoDoc](http://godoc.org/github.com/martini-contrib/binding)
+[![GoDoc](https://godoc.org/github.com/martini-contrib/binding?status.png)](https://godoc.org/github.com/martini-contrib/binding)
 
 ## Features
 
@@ -18,7 +18,7 @@ Request data binding and validation for Martini.
 
 ## Usage
 
-#### Getting form data
+#### Getting form data from a request
 
 Suppose you have a contact form on your site where at least name and message are required. We'll need a struct to receive the data:
 
@@ -39,7 +39,15 @@ m.Post("/contact/submit", binding.Bind(ContactForm{}), func(contact ContactForm)
 })
 ```
 
-That's it! The `binding.Bind` function takes care of validating required fields. If there are any errors (like a required field is empty), `binding` will return an error the client and your app won't even see the request.
+That's it! The `binding.Bind` function takes care of validating required fields. If there are any errors (like a required field is empty), `binding` will return an error to the client and your app won't even see the request.
+
+
+
+#### Getting JSON data from a request
+
+To get data from JSON payloads, simply use the `json:` struct tags instead of `form:`. Pro Tip: Use [JSON-to-Go](http://mholt.github.io/json-to-go/) to correctly convert JSON to a Go type definition. It's useful if you're new to this or the structure is large/complex.
+
+
 
 #### Custom validation
 
