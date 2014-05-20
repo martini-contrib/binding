@@ -111,11 +111,11 @@ var errorTestCases = []errorTestCase{
 
 func TestErrorHandler(t *testing.T) {
 	for _, testCase := range errorTestCases {
-		performErrorsTest(t, testCase)
+		performErrorTest(t, testCase)
 	}
 }
 
-func performErrorsTest(t *testing.T, testCase errorTestCase) {
+func performErrorTest(t *testing.T, testCase errorTestCase) {
 	httpRecorder := httptest.NewRecorder()
 
 	ErrorHandler(testCase.errors, httpRecorder)

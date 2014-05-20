@@ -36,7 +36,7 @@ var validationTestCases = []validationTestCase{
 			},
 		},
 		expectedErrors: Errors{
-			{
+			Error{
 				FieldNames:     []string{"id"},
 				Classification: RequiredError,
 				Message:        "Required",
@@ -55,12 +55,12 @@ var validationTestCases = []validationTestCase{
 			},
 		},
 		expectedErrors: Errors{
-			{
+			Error{
 				FieldNames:     []string{"title"},
 				Classification: RequiredError,
 				Message:        "Required",
 			},
-			{
+			Error{
 				FieldNames:     []string{"title"},
 				Classification: "LengthError",
 				Message:        "Life is too short",
@@ -77,7 +77,7 @@ var validationTestCases = []validationTestCase{
 			},
 		},
 		expectedErrors: Errors{
-			{
+			Error{
 				FieldNames:     []string{"name"},
 				Classification: RequiredError,
 				Message:        "Required",
@@ -98,7 +98,7 @@ var validationTestCases = []validationTestCase{
 			Coauthor: &Person{},
 		},
 		expectedErrors: Errors{
-			{
+			Error{
 				FieldNames:     []string{"name"},
 				Classification: RequiredError,
 				Message:        "Required",
@@ -135,7 +135,7 @@ var validationTestCases = []validationTestCase{
 			},
 		},
 		expectedErrors: Errors{
-			{
+			Error{
 				FieldNames:     []string{"title"},
 				Classification: "LengthError",
 				Message:        "Life is too short",

@@ -45,15 +45,9 @@ func Bind(obj interface{}, ifacePtr ...interface{}) martini.Handler {
 			} else {
 				var errors Errors
 				if contentType == "" {
-					errors = append(errors, Error{
-						Classification: ContentTypeError,
-						Message:        "Empty Content-Type",
-					})
+					errors.Add([]string{}, ContentTypeError, "Empty Content-Type")
 				} else {
-					errors = append(errors, Error{
-						Classification: ContentTypeError,
-						Message:        "Unsupported Content-Type",
-					})
+					errors.Add([]string{}, ContentTypeError, "Unsupported Content-Type")
 				}
 				context.Map(errors)
 			}
@@ -85,10 +79,7 @@ func Form(formStruct interface{}, ifacePtr ...interface{}) martini.Handler {
 		// Because an empty request body or url can also mean absence of all needed values,
 		// it is not in all cases a bad request, so let's return 422.
 		if parseErr != nil {
-			errors = append(errors, Error{
-				Classification: DeserializationError,
-				Message:        parseErr.Error(),
-			})
+			errors.Add([]string{}, DeserializationError, parseErr.Error())
 		}
 		mapForm(formStruct, req.Form, nil, errors)
 		validateAndMap(formStruct, context, errors, ifacePtr...)
@@ -111,17 +102,11 @@ func MultipartForm(formStruct interface{}, ifacePtr ...interface{}) martini.Hand
 		// https://code.google.com/p/go/issues/detail?id=6334
 		multipartReader, err := req.MultipartReader()
 		if err != nil {
-			errors = append(errors, Error{
-				Classification: DeserializationError,
-				Message:        err.Error(),
-			})
+			errors.Add([]string{}, DeserializationError, err.Error())
 		} else {
 			form, parseErr := multipartReader.ReadForm(MaxMemory)
 			if parseErr != nil {
-				errors = append(errors, Error{
-					Classification: DeserializationError,
-					Message:        parseErr.Error(),
-				})
+				errors.Add([]string{}, DeserializationError, parseErr.Error())
 			}
 			req.MultipartForm = form
 		}
@@ -148,10 +133,7 @@ func Json(jsonStruct interface{}, ifacePtr ...interface{}) martini.Handler {
 			defer req.Body.Close()
 			err := json.NewDecoder(req.Body).Decode(jsonStruct.Interface())
 			if err != nil && err != io.EOF {
-				errors = append(errors, Error{
-					Classification: DeserializationError,
-					Message:        err.Error(),
-				})
+				errors.Add([]string{}, DeserializationError, err.Error())
 			}
 		}
 
@@ -210,11 +192,7 @@ func validateStruct(errors Errors, obj interface{}) Errors {
 				} else if f := field.Tag.Get("form"); f != "" {
 					name = f
 				}
-				errors = append(errors, Error{
-					FieldNames:     []string{name},
-					Classification: RequiredError,
-					Message:        "Required",
-				})
+				errors.Add([]string{name}, RequiredError, "Required")
 			}
 		}
 	}
@@ -313,11 +291,7 @@ func setWithProperType(valueKind reflect.Kind, val string, structField reflect.V
 		}
 		intVal, err := strconv.ParseInt(val, 10, 64)
 		if err != nil {
-			errors = append(errors, Error{
-				FieldNames:     []string{nameInTag},
-				Classification: TypeError,
-				Message:        "Value could not be parsed as integer",
-			})
+			errors.Add([]string{nameInTag}, TypeError, "Value could not be parsed as integer")
 		} else {
 			structField.SetInt(intVal)
 		}
@@ -327,11 +301,7 @@ func setWithProperType(valueKind reflect.Kind, val string, structField reflect.V
 		}
 		uintVal, err := strconv.ParseUint(val, 10, 64)
 		if err != nil {
-			errors = append(errors, Error{
-				FieldNames:     []string{nameInTag},
-				Classification: TypeError,
-				Message:        "Value could not be parsed as unsigned integer",
-			})
+			errors.Add([]string{nameInTag}, TypeError, "Value could not be parsed as unsigned integer")
 		} else {
 			structField.SetUint(uintVal)
 		}
@@ -341,11 +311,7 @@ func setWithProperType(valueKind reflect.Kind, val string, structField reflect.V
 		}
 		boolVal, err := strconv.ParseBool(val)
 		if err != nil {
-			errors = append(errors, Error{
-				FieldNames:     []string{nameInTag},
-				Classification: TypeError,
-				Message:        "Value could not be parsed as boolean",
-			})
+			errors.Add([]string{nameInTag}, TypeError, "Value could not be parsed as boolean")
 		} else {
 			structField.SetBool(boolVal)
 		}
@@ -355,11 +321,7 @@ func setWithProperType(valueKind reflect.Kind, val string, structField reflect.V
 		}
 		floatVal, err := strconv.ParseFloat(val, 32)
 		if err != nil {
-			errors = append(errors, Error{
-				FieldNames:     []string{nameInTag},
-				Classification: TypeError,
-				Message:        "Value could not be parsed as 32-bit float",
-			})
+			errors.Add([]string{nameInTag}, TypeError, "Value could not be parsed as 32-bit float")
 		} else {
 			structField.SetFloat(floatVal)
 		}
@@ -369,11 +331,7 @@ func setWithProperType(valueKind reflect.Kind, val string, structField reflect.V
 		}
 		floatVal, err := strconv.ParseFloat(val, 64)
 		if err != nil {
-			errors = append(errors, Error{
-				FieldNames:     []string{nameInTag},
-				Classification: TypeError,
-				Message:        "Value could not be parsed as 64-bit float",
-			})
+			errors.Add([]string{nameInTag}, TypeError, "Value could not be parsed as 64-bit float")
 		} else {
 			structField.SetFloat(floatVal)
 		}
@@ -403,51 +361,12 @@ func validateAndMap(obj reflect.Value, context martini.Context, errors Errors, i
 	}
 }
 
-// getErrors simply gets the errors from the context; it's kind of a chore
+// getErrors simply gets the errors from the context (it's kind of a chore)
 func getErrors(context martini.Context) Errors {
 	return context.Get(reflect.TypeOf(Errors{})).Interface().(Errors)
 }
 
-// Has determines whether an Errors slice has an Error with
-// a given classification in it; it does not search on messages
-// or field names.
-func (e Errors) Has(class string) bool {
-	for _, err := range e {
-		if err.Classification == class {
-			return true
-		}
-	}
-	return false
-}
-
 type (
-	// Errors may be generated during deserialization, binding,
-	// or validation. This type is mapped to the context so you
-	// can inject it into your own handlers and use it in your
-	// application if you want all your errors to look the same.
-	Errors []Error
-
-	// An Error is generated when validation fails.
-	Error struct {
-		// An error supports zero or more field names, because an
-		// error can morph three ways: (1) it can indicate something
-		// wrong with the request as a whole, (2) it can point to a
-		// specific problem with a particular input field, or (3) it
-		// can span multiple related input fields.
-		FieldNames []string `json:"fieldNames,omitempty"`
-
-		// The classification is like an error code, convenient to
-		// use when processing or categorizing an error programmatically.
-		Classification string `json:"classification,omitempty"`
-
-		// The message should be human-readable and detailed enough to
-		// pinpoint and resolve the problem, but it should be brief. For
-		// example, a payload of 100 objects in a JSON array might have
-		// an error in the 41st object. The message should help the
-		// end user find and fix the error with their request.
-		Message string `json:"message,omitempty"`
-	}
-
 	// Implement the Validator interface to handle some rudimentary
 	// request validation logic so your application doesn't have to.
 	Validator interface {
@@ -468,12 +387,6 @@ var (
 )
 
 const (
-	RequiredError        = "RequiredError"
-	ContentTypeError     = "ContentTypeError"
-	DeserializationError = "DeserializationError"
-	TypeError            = "TypeError"
-
-	jsonContentType = "application/json; charset=utf-8"
-
+	jsonContentType           = "application/json; charset=utf-8"
 	StatusUnprocessableEntity = 422
 )
