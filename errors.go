@@ -7,7 +7,6 @@ type (
 	// application if you want all your errors to look the same.
 	Errors []Error
 
-	// An Error is generated when validation fails.
 	Error struct {
 		// An error supports zero or more field names, because an
 		// error can morph three ways: (1) it can indicate something
@@ -18,10 +17,10 @@ type (
 
 		// The classification is like an error code, convenient to
 		// use when processing or categorizing an error programmatically.
-		// It may also be called the "Kind" of error
+		// It may also be called the "kind" of error.
 		Classification string `json:"classification,omitempty"`
 
-		// Message (the message) should be human-readable and detailed enough to
+		// Message should be human-readable and detailed enough to
 		// pinpoint and resolve the problem, but it should be brief. For
 		// example, a payload of 100 objects in a JSON array might have
 		// an error in the 41st object. The message should help the
