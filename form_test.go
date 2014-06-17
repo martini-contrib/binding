@@ -90,11 +90,19 @@ var formTestCases = []formTestCase{
 		expected:      Post{Title: "Glorious Post Title", Content: "Lorem ipsum dolor sit amet"},
 	},
 	{
-		description:   "Query string",
+		description:   "Query string with Content-Type (POST request)",
 		shouldSucceed: true,
 		queryString:   "?title=Glorious+Post+Title&content=Lorem+ipsum+dolor+sit+amet",
 		payload:       ``,
 		contentType:   formContentType,
+		expected:      Post{Title: "Glorious Post Title", Content: "Lorem ipsum dolor sit amet"},
+	},
+	{
+		description:   "Query string without Content-Type (GET request)",
+		shouldSucceed: true,
+		method:        "GET",
+		queryString:   "?title=Glorious+Post+Title&content=Lorem+ipsum+dolor+sit+amet",
+		payload:       ``,
 		expected:      Post{Title: "Glorious Post Title", Content: "Lorem ipsum dolor sit amet"},
 	},
 }
@@ -138,6 +146,9 @@ func performFormTest(t *testing.T, binder handlerFunc, testCase formTestCase) {
 			m.Post(testRoute, binder(Post{}), func(actual Post, errs Errors) {
 				formTestHandler(actual, errs)
 			})
+			m.Get(testRoute, binder(Post{}), func(actual Post, errs Errors) {
+				formTestHandler(actual, errs)
+			})
 		}
 
 	case BlogPost:
@@ -156,7 +167,11 @@ func performFormTest(t *testing.T, binder handlerFunc, testCase formTestCase) {
 		}
 	}
 
-	req, err := http.NewRequest("POST", testRoute+testCase.queryString, strings.NewReader(testCase.payload))
+	if testCase.method == "" {
+		testCase.method = "POST"
+	}
+
+	req, err := http.NewRequest(testCase.method, testRoute+testCase.queryString, strings.NewReader(testCase.payload))
 	if err != nil {
 		panic(err)
 	}
@@ -181,5 +196,6 @@ type (
 		payload       string
 		contentType   string
 		expected      interface{}
+		method        string
 	}
 )
