@@ -2,7 +2,7 @@
 
 Request data binding and validation for Martini.
 
-[![GoDoc](https://godoc.org/github.com/martini-contrib/binding?status.png)](https://godoc.org/github.com/martini-contrib/binding)
+[![GoDoc](https://godoc.org/github.com/martini-contrib/binding?status.svg)](https://godoc.org/github.com/martini-contrib/binding)
 
 ## Features
 
