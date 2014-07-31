@@ -41,6 +41,7 @@ m.Post("/contact/submit", binding.Bind(ContactForm{}), func(contact ContactForm)
 
 That's it! The `binding.Bind` function takes care of validating required fields. If there are any errors (like a required field is empty), `binding` will return an error to the client and your app won't even see the request.
 
+(Caveat: Don't try to bind to embedded struct pointers; it won't work. See [issue 30](https://github.com/martini-contrib/binding/issues/30) if you want to help with this.)
 
 
 #### Getting JSON data from a request
