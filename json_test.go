@@ -93,6 +93,13 @@ var jsonTestCases = []jsonTestCase{
 		contentType:         jsonContentType,
 		expected:            BlogPost{Id: 1, Author: Person{Name: "Matt Holt"}},
 	},
+	{
+		description:         "Slice of Posts",
+		shouldSucceedOnJson: true,
+		payload:             `[{"title": "First Post"}, {"title": "Second Post"}]`,
+		contentType:         jsonContentType,
+		expected:            []Post{Post{Title: "First Post"}, Post{Title: "Second Post"}},
+	},
 }
 
 func TestJson(t *testing.T) {
@@ -122,6 +129,24 @@ func performJsonTest(t *testing.T, binder handlerFunc, testCase jsonTestCase) {
 	}
 
 	switch testCase.expected.(type) {
+	case []Post:
+		if testCase.withInterface {
+			m.Post(testRoute, binder([]Post{}, (*modeler)(nil)), func(actual []Post, iface modeler, errs Errors) {
+
+				for _, a := range actual {
+					if a.Title != iface.Model() {
+						t.Errorf("For '%s': expected the struct to be mapped to the context as an interface",
+							testCase.description)
+					}
+					jsonTestHandler(a, errs)
+				}
+			})
+		} else {
+			m.Post(testRoute, binder([]Post{}), func(actual []Post, errs Errors) {
+				jsonTestHandler(actual, errs)
+			})
+		}
+
 	case Post:
 		if testCase.withInterface {
 			m.Post(testRoute, binder(Post{}, (*modeler)(nil)), func(actual Post, iface modeler, errs Errors) {

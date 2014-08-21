@@ -142,6 +142,64 @@ var validationTestCases = []validationTestCase{
 			},
 		},
 	},
+	{
+		description: "List Validation",
+		data: []BlogPost{
+			BlogPost{
+				Id: 1,
+				Post: Post{
+					Title:   "First Post",
+					Content: "And some content",
+				},
+				Author: Person{
+					Name: "Leeor Aharon",
+				},
+			},
+			BlogPost{
+				Id: 2,
+				Post: Post{
+					Title:   "Second Post",
+					Content: "And some content",
+				},
+				Author: Person{
+					Name: "Leeor Aharon",
+				},
+			},
+		},
+		expectedErrors: Errors{},
+	},
+	{
+		description: "List Validation w/ Errors",
+		data: []BlogPost{
+			BlogPost{
+				Id: 1,
+				Post: Post{
+					Title:   "First Post",
+					Content: "And some content",
+				},
+				Author: Person{
+					Name: "Leeor Aharon",
+				},
+			},
+			BlogPost{
+				Id: 2,
+				Post: Post{
+					Title:   "Too Short",
+					Content: "And some content",
+				},
+				Author: Person{
+					Name: "Leeor Aharon",
+				},
+			},
+		},
+		expectedErrors: Errors{
+			Error{
+				FieldNames:     []string{"title"},
+				Classification: "LengthError",
+				Message:        "Life is too short",
+			},
+		},
+	},
 }
 
 func TestValidation(t *testing.T) {
@@ -181,7 +239,7 @@ func performValidationTest(t *testing.T, testCase validationTestCase) {
 type (
 	validationTestCase struct {
 		description    string
-		data           BlogPost
+		data           interface{}
 		expectedErrors Errors
 	}
 )

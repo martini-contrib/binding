@@ -150,9 +150,34 @@ func Json(jsonStruct interface{}, ifacePtr ...interface{}) martini.Handler {
 func Validate(obj interface{}) martini.Handler {
 	return func(context martini.Context, req *http.Request) {
 		var errors Errors
-		errors = validateStruct(errors, obj)
-		if validator, ok := obj.(Validator); ok {
-			errors = validator.Validate(errors, req)
+
+		v := reflect.ValueOf(obj)
+		k := v.Kind()
+
+		if k == reflect.Interface || k == reflect.Ptr {
+
+			v = v.Elem()
+			k = v.Kind()
+		}
+
+		if k == reflect.Slice || k == reflect.Array {
+
+			for i := 0; i < v.Len(); i++ {
+
+				e := v.Index(i).Interface()
+				errors = validateStruct(errors, e)
+
+				if validator, ok := e.(Validator); ok {
+					errors = validator.Validate(errors, req)
+				}
+			}
+		} else {
+
+			errors = validateStruct(errors, obj)
+
+			if validator, ok := obj.(Validator); ok {
+				errors = validator.Validate(errors, req)
+			}
 		}
 		context.Map(errors)
 	}
