@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -105,6 +106,24 @@ var formTestCases = []formTestCase{
 		payload:       ``,
 		expected:      Post{Title: "Glorious Post Title", Content: "Lorem ipsum dolor sit amet"},
 	},
+	{
+		description:   "Embed struct pointer",
+		shouldSucceed: true,
+		deepEqual:     true,
+		method:        "GET",
+		queryString:   "?name=Glorious+Post+Title&email=Lorem+ipsum+dolor+sit+amet",
+		payload:       ``,
+		expected:      EmbedPerson{&Person{Name: "Glorious Post Title", Email: "Lorem ipsum dolor sit amet"}},
+	},
+	{
+		description:   "Embed struct pointer remain nil if not binded",
+		shouldSucceed: true,
+		deepEqual:     true,
+		method:        "GET",
+		queryString:   "?",
+		payload:       ``,
+		expected:      EmbedPerson{nil},
+	},
 }
 
 func TestForm(t *testing.T) {
@@ -126,7 +145,7 @@ func performFormTest(t *testing.T, binder handlerFunc, testCase formTestCase) {
 		}
 		expString := fmt.Sprintf("%+v", testCase.expected)
 		actString := fmt.Sprintf("%+v", actual)
-		if actString != expString {
+		if actString != expString && !(testCase.deepEqual && reflect.DeepEqual(testCase.expected, actual)) {
 			t.Errorf("'%s': expected\n'%s'\nbut got\n'%s'",
 				testCase.description, expString, actString)
 		}
@@ -165,6 +184,14 @@ func performFormTest(t *testing.T, binder handlerFunc, testCase formTestCase) {
 				formTestHandler(actual, errs)
 			})
 		}
+
+	case EmbedPerson:
+		m.Post(testRoute, binder(EmbedPerson{}), func(actual EmbedPerson, errs Errors) {
+			formTestHandler(actual, errs)
+		})
+		m.Get(testRoute, binder(EmbedPerson{}), func(actual EmbedPerson, errs Errors) {
+			formTestHandler(actual, errs)
+		})
 	}
 
 	if testCase.method == "" {
@@ -191,6 +218,7 @@ type (
 	formTestCase struct {
 		description   string
 		shouldSucceed bool
+		deepEqual     bool
 		withInterface bool
 		queryString   string
 		payload       string

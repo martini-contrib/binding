@@ -239,7 +239,13 @@ func mapForm(formStruct reflect.Value, form map[string][]string,
 		typeField := typ.Field(i)
 		structField := formStruct.Field(i)
 
-		if typeField.Type.Kind() == reflect.Struct {
+		if typeField.Type.Kind() == reflect.Ptr && typeField.Anonymous {
+			structField.Set(reflect.New(typeField.Type.Elem()))
+			mapForm(structField.Elem(), form, formfile, errors)
+			if reflect.DeepEqual(structField.Elem().Interface(), reflect.Zero(structField.Elem().Type()).Interface()) {
+				structField.Set(reflect.Zero(structField.Type()))
+			}
+		} else if typeField.Type.Kind() == reflect.Struct {
 			mapForm(structField, form, formfile, errors)
 		} else if inputFieldName := typeField.Tag.Get("form"); inputFieldName != "" {
 			if !structField.CanSet() {
