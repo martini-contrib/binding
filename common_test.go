@@ -39,6 +39,10 @@ type (
 		unexported  string                  `form:"unexported"`
 	}
 
+	EmbedPerson struct {
+		*Person
+	}
+
 	// The common function signature of the handlers going under test.
 	handlerFunc func(interface{}, ...interface{}) martini.Handler
 
