@@ -99,23 +99,26 @@ func MultipartForm(formStruct interface{}, ifacePtr ...interface{}) martini.Hand
 		ensureNotPointer(formStruct)
 		formStruct := reflect.New(reflect.TypeOf(formStruct))
 
-		// Workaround for multipart forms returning nil instead of an error
-		// when content is not multipart
-		// https://code.google.com/p/go/issues/detail?id=6334
-		multipartReader, err := req.MultipartReader()
-		if err != nil {
-			errors.Add([]string{}, DeserializationError, err.Error())
-		} else {
-			form, parseErr := multipartReader.ReadForm(MaxMemory)
-			if parseErr != nil {
-				errors.Add([]string{}, DeserializationError, parseErr.Error())
+		// This if check is necessary due to https://github.com/martini-contrib/csrf/issues/6
+		if req.MultipartForm == nil {
+			// Workaround for multipart forms returning nil instead of an error
+			// when content is not multipart; see https://code.google.com/p/go/issues/detail?id=6334
+			if multipartReader, err := req.MultipartReader(); err != nil {
+				// TODO: Cover this and the next error check with tests
+				errors.Add([]string{}, DeserializationError, err.Error())
+			} else {
+				form, parseErr := multipartReader.ReadForm(MaxMemory)
+				if parseErr != nil {
+					errors.Add([]string{}, DeserializationError, parseErr.Error())
+				}
+				req.MultipartForm = form
 			}
-			req.MultipartForm = form
 		}
 
 		mapForm(formStruct, req.MultipartForm.Value, req.MultipartForm.File, errors)
 		validateAndMap(formStruct, context, errors, ifacePtr...)
 	}
+
 }
 
 // Json is middleware to deserialize a JSON payload from the request

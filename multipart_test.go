@@ -19,6 +19,12 @@ var multipartFormTestCases = []multipartFormTestCase{
 		inputAndExpected: BlogPost{Post: Post{Title: "Glorious Post Title"}, Id: 1, Author: Person{Name: "Matt Holt"}},
 	},
 	{
+		description:         "FormValue called before req.MultipartReader(); see https://github.com/martini-contrib/csrf/issues/6",
+		shouldSucceed:       true,
+		callFormValueBefore: true,
+		inputAndExpected:    BlogPost{Post: Post{Title: "Glorious Post Title"}, Id: 1, Author: Person{Name: "Matt Holt"}},
+	},
+	{
 		description:      "Empty payload",
 		shouldSucceed:    false,
 		inputAndExpected: BlogPost{},
@@ -89,6 +95,10 @@ func performMultipartFormTest(t *testing.T, binder handlerFunc, testCase multipa
 		panic(err)
 	}
 
+	if testCase.callFormValueBefore {
+		req.FormValue("foo")
+	}
+
 	m.ServeHTTP(httpRecorder, req)
 
 	switch httpRecorder.Code {
@@ -105,8 +115,7 @@ func makeMultipartPayload(testCase multipartFormTestCase) (*bytes.Buffer, *multi
 	writer := multipart.NewWriter(body)
 	if testCase.malformEncoding {
 		// TODO: Break the multipart form parser which is apparently impervious!!
-		// (Get it to return an error.  I'm trying to get test coverage inside the
-		// code that handles this possibility...)
+		// (Get it to return an error. Trying to get 100% test coverage.)
 		body.Write([]byte(`--` + writer.Boundary() + `\nContent-Disposition: form-data; name="foo"\n\n--` + writer.Boundary() + `--`))
 		return body, writer
 	} else {
@@ -126,9 +135,10 @@ func makeMultipartPayload(testCase multipartFormTestCase) (*bytes.Buffer, *multi
 
 type (
 	multipartFormTestCase struct {
-		description      string
-		shouldSucceed    bool
-		inputAndExpected BlogPost
-		malformEncoding  bool
+		description         string
+		shouldSucceed       bool
+		inputAndExpected    BlogPost
+		malformEncoding     bool
+		callFormValueBefore bool
 	}
 )
