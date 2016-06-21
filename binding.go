@@ -25,7 +25,7 @@ import (
 
 // Bind wraps up the functionality of the Form and Json middleware
 // according to the Content-Type and verb of the request.
-// A Content-Type is required for POST and PUT requests.
+// A Content-Type is required for POST, PUT and PATCH requests.
 // Bind invokes the ErrorHandler middleware to bail out if errors
 // occurred. If you want to perform your own error handling, use
 // Form or Json middleware directly. An interface pointer can
@@ -35,7 +35,7 @@ func Bind(obj interface{}, ifacePtr ...interface{}) martini.Handler {
 	return func(context martini.Context, req *http.Request) {
 		contentType := req.Header.Get("Content-Type")
 
-		if req.Method == "POST" || req.Method == "PUT" || contentType != "" {
+		if req.Method == "POST" || req.Method == "PUT" || req.Method == "PATCH" || contentType != "" {
 			if strings.Contains(contentType, "form-urlencoded") {
 				context.Invoke(Form(obj, ifacePtr...))
 			} else if strings.Contains(contentType, "multipart/form-data") {
