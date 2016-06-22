@@ -36,6 +36,7 @@ type (
 		Coauthor    *Person                 `json:"coauthor"`
 		HeaderImage *multipart.FileHeader   `form:"headerImage"`
 		Pictures    []*multipart.FileHeader `form:"picture"`
+		IsActive    *bool                   `form:"is_active"`
 		unexported  string                  `form:"unexported"`
 	}
 

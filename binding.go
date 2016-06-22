@@ -266,7 +266,13 @@ func mapForm(formStruct reflect.Value, form map[string][]string,
 					}
 					formStruct.Field(i).Set(slice)
 				} else {
-					setWithProperType(typeField.Type.Kind(), inputValue[0], structField, inputFieldName, errors)
+					kind := typeField.Type.Kind()
+					if structField.Kind() == reflect.Ptr {
+						structField.Set(reflect.New(typeField.Type.Elem()))
+						structField = structField.Elem()
+						kind = typeField.Type.Elem().Kind()
+					}
+					setWithProperType(kind, inputValue[0], structField, inputFieldName, errors)
 				}
 				continue
 			}
