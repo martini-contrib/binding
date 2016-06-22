@@ -11,6 +11,8 @@ import (
 	"github.com/go-martini/martini"
 )
 
+var addressableTrue bool = true
+
 var formTestCases = []formTestCase{
 	{
 		description:   "Happy path",
@@ -82,6 +84,14 @@ var formTestCases = []formTestCase{
 		payload:       `title=Glorious+Post+Title&id=1&name=Matt+Holt&unexported=foo`,
 		contentType:   formContentType,
 		expected:      BlogPost{Post: Post{Title: "Glorious Post Title"}, Id: 1, Author: Person{Name: "Matt Holt"}},
+	},
+	{
+		description:   "Bool pointer",
+		shouldSucceed: true,
+		payload:       `title=Glorious+Post+Title&id=1&name=Matt+Holt&is_active=true`,
+		contentType:   formContentType,
+		expected:      BlogPost{Post: Post{Title: "Glorious Post Title"}, Id: 1, Author: Person{Name: "Matt Holt"}, IsActive: &addressableTrue},
+		deepEqual:     true,
 	},
 	{
 		description:   "Query string POST",
