@@ -256,7 +256,8 @@ func mapForm(formStruct reflect.Value, form map[string][]string,
 			}
 
 			inputValue, exists := form[inputFieldName]
-			if exists {
+			inputFile, existsFile := formfile[inputFieldName]
+			if exists && !existsFile {
 				numElems := len(inputValue)
 				if structField.Kind() == reflect.Slice && numElems > 0 {
 					sliceOf := structField.Type().Elem().Kind()
@@ -277,8 +278,7 @@ func mapForm(formStruct reflect.Value, form map[string][]string,
 				continue
 			}
 
-			inputFile, exists := formfile[inputFieldName]
-			if !exists {
+			if !existsFile {
 				continue
 			}
 			fhType := reflect.TypeOf((*multipart.FileHeader)(nil))

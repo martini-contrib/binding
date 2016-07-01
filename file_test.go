@@ -181,8 +181,146 @@ type (
 		multipleFiles []*fileInfo
 	}
 
+	multipartFileFormTestCase struct {
+		description   string
+		fields        map[string]string
+		multipleFiles []*fileInfo
+	}
+
 	fileInfo struct {
 		fileName string
 		data     string
 	}
 )
+
+var multipartFileFormTestCases = []multipartFileFormTestCase{
+	{
+		description: "Test upload files",
+		multipleFiles: []*fileInfo{
+			&fileInfo{
+				fileName: "cool-gopher-fact.txt",
+				data:     "Did you know? https://plus.google.com/+MatthewHolt/posts/GmVfd6TPJ51",
+			},
+			&fileInfo{
+				fileName: "gophercon2014.txt",
+				data:     "@bradfitz has a Go time machine: https://twitter.com/mholt6/status/459463953395875840",
+			},
+		},
+	},
+	{
+		description: "Test upload files with empty input[type=file]",
+		multipleFiles: []*fileInfo{
+			&fileInfo{
+				fileName: "cool-gopher-fact.txt",
+				data:     "Did you know? https://plus.google.com/+MatthewHolt/posts/GmVfd6TPJ51",
+			},
+			&fileInfo{
+				fileName: "gophercon2014.txt",
+				data:     "@bradfitz has a Go time machine: https://twitter.com/mholt6/status/459463953395875840",
+			},
+			&fileInfo{},
+		},
+	},
+	{
+		description: "Test send post data",
+		fields: map[string]string{
+			"test": "data",
+			"save": "",
+		},
+	},
+	{
+		description: "Test send post data and upload files with empty input[type=file]",
+		fields: map[string]string{
+			"test": "data",
+			"save": "",
+		},
+		multipleFiles: []*fileInfo{
+			&fileInfo{
+				fileName: "cool-gopher-fact.txt",
+				data:     "Did you know? https://plus.google.com/+MatthewHolt/posts/GmVfd6TPJ51",
+			},
+			&fileInfo{
+				fileName: "gophercon2014.txt",
+				data:     "@bradfitz has a Go time machine: https://twitter.com/mholt6/status/459463953395875840",
+			},
+			&fileInfo{},
+			&fileInfo{},
+		},
+	},
+}
+
+func TestMultipartFilesForm(t *testing.T) {
+	for _, testCase := range multipartFileFormTestCases {
+		performMultipartFilesFormTest(t, MultipartForm, testCase)
+	}
+}
+
+func performMultipartFilesFormTest(t *testing.T, binder handlerFunc, testCase multipartFileFormTestCase) {
+	httpRecorder := httptest.NewRecorder()
+	m := martini.Classic()
+
+	m.Post(testRoute, binder(BlogPost{}), func(actual BlogPost, errs Errors) {
+		expectedCountFiles := 0
+		actualCountFiles := 0
+
+		for _, value := range testCase.multipleFiles {
+			if value.fileName != "" {
+				expectedCountFiles++ // Counting only not null files
+			}
+		}
+
+		for _, value := range actual.Pictures {
+			if value != nil {
+				actualCountFiles++ // Counting only not null files
+			}
+		}
+
+		if actualCountFiles != expectedCountFiles {
+			t.Errorf("'%s': expected\n'%d'\nbut got\n'%d'", testCase.description, expectedCountFiles, actualCountFiles)
+		}
+	})
+
+	multipartPayload, mpWriter := makeMultipartFilesPayload(testCase)
+
+	req, err := http.NewRequest("POST", testRoute, multipartPayload)
+	if err != nil {
+		panic(err)
+	}
+
+	req.Header.Add("Content-Type", mpWriter.FormDataContentType())
+
+	err = mpWriter.Close()
+	if err != nil {
+		panic(err)
+	}
+
+	m.ServeHTTP(httpRecorder, req)
+
+	switch httpRecorder.Code {
+	case http.StatusNotFound:
+		panic("Routing is messed up in test fixture (got 404): check methods and paths")
+	case http.StatusInternalServerError:
+		panic("Something bad happened on '" + testCase.description + "'")
+	}
+}
+
+// Writes the input from a test case into a buffer using the multipart writer.
+func makeMultipartFilesPayload(testCase multipartFileFormTestCase) (*bytes.Buffer, *multipart.Writer) {
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	var boundary string
+
+	for key, value := range testCase.fields {
+		boundary += "--" + writer.Boundary() + "\nContent-Disposition: form-data; name=\"" + key + "\";\n\n" + value + "\n\n"
+	}
+
+	for _, file := range testCase.multipleFiles {
+		boundary += "--" + writer.Boundary() + "\nContent-Disposition: form-data; name=\"picture\"; filename=\"" + file.fileName + "\"\nContent-Type: text/plain\n\n" + file.data + "\n\n"
+	}
+
+	boundary += "--" + writer.Boundary() + "--\n"
+
+	body.Write([]byte(boundary))
+	return body, writer
+}
